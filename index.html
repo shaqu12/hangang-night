@@ -35,6 +35,7 @@
   #acts button:active { transform: scale(.9); }
   #acts .sep { flex: 0 0 1px; background: var(--line); margin: 8px 2px; }
   #acts button.cool { opacity: .45; }
+  #acts button.admin span { color: #f5c84c; }
   #fwInfo { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px); padding: 7px 14px; font-size: 13px; white-space: nowrap; display: none; pointer-events: none; }
   #fwInfo.on { display: block; }
   #emo { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px); display: none; gap: 2px; padding: 6px; }
@@ -61,6 +62,16 @@
   #gate p { margin: 0 0 28px; color: var(--dim); font-size: 15px; line-height: 1.6; }
   #gate button { all: unset; cursor: pointer; padding: 14px 30px; border-radius: 999px; background: #f3d9a4; color: #1b1a22; font-weight: 700; font-size: 16px; }
   #gate small { display: block; margin-top: 18px; color: var(--dim); font-size: 12px; }
+  #nickRow { display: flex; gap: 6px; justify-content: center; margin: 0 auto; width: min(260px, 100%); }
+  #nickRow input, #nickBox input { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--ink); font: inherit; font-size: 16px; text-align: center; outline: none; }
+  #nickRow input:focus, #nickBox input:focus { border-color: rgba(243,217,164,.6); }
+  #nickRow button, #nickBox button { all: unset; cursor: pointer; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 16px; display: grid; place-items: center; min-height: 40px; }
+  #gate small.nickHint { margin: 8px 0 22px; }
+  #nickBox { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); width: min(300px, calc(100vw - 32px)); padding: 16px; border-radius: 20px; display: none; flex-direction: column; gap: 12px; font-size: 14px; text-align: center; }
+  #nickBox.on { display: flex; }
+  #nickBox > div { display: flex; gap: 6px; }
+  #nickBox .btns button { flex: 1; font-size: 14px; color: var(--dim); }
+  #nickBox .btns button.on { background: #f3d9a4; color: #1b1a22; font-weight: 700; border-color: transparent; }
 </style>
 </head>
 <body>
@@ -79,9 +90,12 @@
 <div id="emo" class="pill"></div>
 <div id="acts" class="pill"></div>
 <div id="fwInfo" class="pill"></div>
+<div id="nickBox" class="pill"><b>닉네임 바꾸기</b><div><input id="nickEd" maxlength="5" autocomplete="off" enterkeyhint="done" aria-label="새 닉네임"><button id="nickEdDice" aria-label="다른 이름">🎲</button></div><div class="btns"><button id="nickCancel">닫기</button><button id="nickSave" class="on">바꾸기</button></div></div>
 <div id="gate"><div class="box">
   <h1>밤 한강 돗자리</h1>
   <p id="gateMsg">조용한 강변에 잠깐 앉았다 가요.<br>여기 앉은 사람들은 모두 지금 접속한 사람이에요.</p>
+  <div id="nickRow"><input id="nickIn" maxlength="5" autocomplete="off" enterkeyhint="go" aria-label="닉네임"><button id="nickDice" aria-label="다른 이름">🎲</button></div>
+  <small class="nickHint">닉네임(5자까지)은 그대로 둬도 돼요. 폭죽을 쏘면 하늘에 이름이 떠요.</small>
   <button id="go">돗자리 펴기</button>
   <small id="soundNote">말은 못 하고 이모지만 보낼 수 있어요.</small>
 </div></div>
@@ -295,7 +309,7 @@ function drawScene(t, dt) {
     if (k >= 1) { shoot = null; nextShoot = 25 + Math.random() * 35; }
   }
   // 유성우: 3분마다 22초 동안. 시계로 정해서 접속한 모두가 같은 때 본다(서버 필요 없음). 꼬리 달린 별이 1초에 1~2개
-  const sh = (Date.now() / 1000 + 37) % 180, showerOn = sh < 22, showerId = Math.floor((Date.now() / 1000 + 37) / 180);
+  const sh = (Date.now() / 1000 + 37) % 180, showerOn = sh < 22 || performance.now() < forceShowerUntil, showerId = Math.floor((Date.now() / 1000 + 37) / 180);
   if (showerOn && started && showerId !== shownShower) { shownShower = showerId; if (sh < 3) toast("🌠 유성우가 내려요. 소원 하나 빌어 봐요", 4000); }
   if (showerOn && meteors.length < 8 && Math.random() < dt * 1.6) {
     const dir = Math.random() < .7 ? -1 : 1;
@@ -564,7 +578,7 @@ function standSpot(id) { return { x: W * (.1 + ((id * .618034) % 1) * .8), y: pa
 const seatTaken = i => [...chars.values()].some(c => c.seat === i && c.state !== "leave");
 
 function addChar(u, walk) {
-  const c = { id: u.id, color: u.color, hair: HAIR[u.id % HAIR.length], style: (u.id * 7) % 5, prop: (u.id * 13) % 7, act: u.act || "sit", waveUntil: 0, seat: u.seat, emo: [], phase: Math.random() * 6, born: performance.now() };
+  const c = { id: u.id, nick: u.nick || "", admin: !!u.admin, color: u.color, hair: HAIR[u.id % HAIR.length], style: (u.id * 7) % 5, prop: (u.id * 13) % 7, act: u.act || "sit", waveUntil: 0, seat: u.seat, emo: [], phase: Math.random() * 6, born: performance.now() };
   const spot = u.seat == null ? standSpot(u.id) : seats[u.seat];
   if (walk) {
     const fromLeft = spot.x < W / 2 ? Math.random() < .8 : Math.random() < .2;
@@ -684,12 +698,19 @@ function drawChar(c, t) {
     }
   }
   if (c.state === "sit" && act !== "lie" && act !== "chicken") drawProp(c, t, s);
+  if (c.admin && c.id !== me) {                                                      // 운영자 이름표는 모두에게 보인다
+    drawCrown(hx, hy - 17 * s, s);
+    cx.font = `700 ${Math.max(11, 10 * s)}px sans-serif`; cx.textAlign = "center"; cx.fillStyle = "rgba(255,214,110,.95)";
+    cx.fillText(`운영자 ${c.nick}`, hx, hy - 27 * s);
+  }
   if (c.id === me) {
     const label = c.state !== "sit" || now - (c.sat || 0) < 6000;
     cx.fillStyle = `rgba(243,217,164,${label ? 1 : .45})`;
     const ay = hy - 19 * s + Math.sin(t * 3) * 1.5 * s;
     cx.beginPath(); cx.moveTo(hx - 4 * s, ay - 5 * s); cx.lineTo(hx + 4 * s, ay - 5 * s); cx.lineTo(hx, ay); cx.fill();
-    if (label) { cx.font = `600 ${Math.max(11, 10 * s)}px sans-serif`; cx.textAlign = "center"; cx.fillText("나", hx, ay - 8 * s); }
+    cx.font = `600 ${Math.max(11, 10 * s)}px sans-serif`; cx.textAlign = "center";
+    if (c.admin) { cx.fillStyle = "rgba(255,214,110,1)"; drawCrown(hx, ay - 20 * s, s); cx.fillStyle = "rgba(255,214,110,1)"; }
+    cx.fillText(label ? `나 · ${c.nick}` : c.nick, hx, ay - 8 * s);                     // 눌러서 닉네임 바꾸기
   }
   c.emo = c.emo.filter(e => now - e.at < 2600);
   for (const e of c.emo) {
@@ -699,6 +720,16 @@ function drawChar(c, t) {
     cx.fillText(e.e, hx + Math.sin(k * 6 + e.at) * 3 * s, hy - 18 * s - k * 34 * s);
     cx.globalAlpha = 1;
   }
+}
+// 운영자 왕관: 금빛 세 봉우리 + 반짝
+function drawCrown(x, y, s) {
+  const w = 7 * s, h = 5 * s;
+  cx.fillStyle = "#f5c84c"; cx.beginPath();
+  cx.moveTo(x - w, y); cx.lineTo(x - w, y - h); cx.lineTo(x - w / 2, y - h * .45); cx.lineTo(x, y - h * 1.25); cx.lineTo(x + w / 2, y - h * .45); cx.lineTo(x + w, y - h); cx.lineTo(x + w, y); cx.closePath(); cx.fill();
+  cx.fillStyle = "#fff3c4"; cx.fillRect(x - w, y - 1.2 * s, 2 * w, 1.2 * s);
+  cx.fillStyle = "#e5484d"; cx.beginPath(); cx.arc(x, y - h * .55, 1.1 * s, 0, TAU); cx.fill();
+  const g = cx.createRadialGradient(x, y - h * .6, 0, x, y - h * .6, 14 * s); g.addColorStop(0, "rgba(255,220,120,.35)"); g.addColorStop(1, "rgba(255,220,120,0)");
+  cx.globalCompositeOperation = "lighter"; cx.fillStyle = g; cx.fillRect(x - 14 * s, y - h * .6 - 14 * s, 28 * s, 28 * s); cx.globalCompositeOperation = "source-over";
 }
 function arm(c, a, b, s) {
   cx.strokeStyle = c.color; cx.lineWidth = 3.6 * s; cx.lineCap = "round";
@@ -770,6 +801,7 @@ function seatAt(px, py) {
 }
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
+  if (!aiming && onMyChar(e.clientX, e.clientY)) return openNickBox();                  // 내 캐릭터(이름표)를 누르면 닉네임 바꾸기
   if (aiming || !canPick()) return;
   const i = seatAt(e.clientX, e.clientY);
   if (i < 0 || seatTaken(i)) return;
@@ -786,7 +818,7 @@ cv.addEventListener("pointermove", e => {
 const FW_SHAPES = ["peony", "ring", "willow", "double", "heart"];   // server.js FW_KINDS와 길이가 같아야 함
 const FW_HUES = ["255,214,120", "255,110,110", "255,140,210", "190,140,255", "120,220,255", "150,255,160", "255,250,240"];   // server.js FW_COLORS
 const FW_MAX = 900, FW_GAP = 2500;
-const rockets = [], bursts = [];
+const rockets = [], bursts = [], fwLabels = [];
 let fwParts = 0, aiming = false, aim = null, lastFwSent = 0, fwFlash = 0, lastThump = 0;
 const FW_KEY = "hn-fw", today = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 let fwToday = 0;
@@ -802,12 +834,12 @@ function launchFw(m) {
   const r = rng(m.s), o = fwFrom(c), ty = Math.max(fwApex(m.p), fwR(m.p) * 1.05 + 58);   // 가로 화면에서 위로 잘리지 않게
   const tx = o.x + (W / 2 - o.x) * .3 + (r() - .5) * W * .25;
   const dur = 1 + .5 * m.p;
-  rockets.push({ ...m, r, x0: o.x, y0: o.y, tx, ty, age: 0, dur, mine: m.id === me, trail: [] });
+  rockets.push({ ...m, r, x0: o.x, y0: o.y, tx, ty, age: 0, dur, mine: m.id === me, trail: [], nick: c.nick, admin: c.admin });
   whistle(dur, m.p, m.id === me);
 }
 function burst(k) {
-  const r = k.r, shape = FW_SHAPES[k.k], R = fwR(k.p), drag = 2.2;
-  let n = Math.round((36 + 44 * k.p) * (shape === "double" ? 1.3 : 1));
+  const r = k.r, shape = k.gold ? "gold" : FW_SHAPES[k.k], R = k.gold ? Math.min(fwR(k.p) * 1.35, H * .16) : fwR(k.p), drag = 2.2;
+  let n = Math.round((36 + 44 * k.p) * (shape === "double" ? 1.3 : shape === "gold" ? 1.7 : 1));
   n = Math.min(n, FW_MAX - fwParts); if (n < 8) return;
   const ps = [], col = FW_HUES[k.h], col2 = FW_HUES[k.h2 === k.h ? (k.h + 3) % FW_HUES.length : k.h2];
   for (let i = 0; i < n; i++) {
@@ -815,14 +847,16 @@ function burst(k) {
     let sp = R * drag, vx, vy, c = col;
     if (shape === "peony") { sp *= .82 + r() * .18; vx = Math.cos(a) * sp; vy = Math.sin(a) * sp; }
     else if (shape === "ring") { vx = Math.cos(a) * sp; vy = Math.sin(a) * sp * .45; }
+    else if (shape === "gold") { const inner = i % 4 === 0; sp *= inner ? .5 : .8 + r() * .2; vx = Math.cos(a) * sp; vy = Math.sin(a) * sp; c = inner ? "255,250,235" : "255,205,95"; }   // 운영자 황금 폭죽
     else if (shape === "willow") { sp *= .55 + r() * .25; vx = Math.cos(a) * sp; vy = Math.sin(a) * sp; c = "255,200,110"; }
     else if (shape === "double") { const inner = i % 3 === 0; sp *= inner ? .45 : .88 + r() * .12; vx = Math.cos(a) * sp; vy = Math.sin(a) * sp; if (inner) c = col2; }
     else { const hx = 16 * Math.sin(a) ** 3, hy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)); vx = hx / 17 * sp; vy = hy / 17 * sp; }
     ps.push({ x: k.tx, y: k.ty, vx, vy, c, tw: r() });
   }
   fwParts += n;
-  bursts.push({ ps, n, age: 0, life: shape === "willow" ? 3.2 : 1.9, grav: (shape === "willow" ? 26 : 14) * U, drag: shape === "willow" ? 2.8 : drag, x: k.tx, y: k.ty, R, col });
-  fwFlash = Math.min(1, fwFlash + .5 + .4 * k.p);
+  bursts.push({ ps, n, age: 0, life: shape === "willow" ? 3.2 : shape === "gold" ? 3 : 1.9, grav: (shape === "willow" ? 26 : shape === "gold" ? 20 : 14) * U, drag: shape === "willow" || shape === "gold" ? 2.6 : drag, x: k.tx, y: k.ty, R, col });
+  if (k.nick && fwLabels.length < 6) fwLabels.push({ gold: !!k.gold, text: k.gold ? `👑 운영자 ${k.nick}` : `${k.nick}님의 폭죽`, x: k.tx, y: k.ty + R * .95 + 12 * U, age: 0, mine: k.mine });
+  fwFlash = Math.min(1.4, fwFlash + .5 + .4 * k.p + (k.gold ? .5 : 0));
   thump(k.p, k.mine, shape);
 }
 // 폭죽 소리: 올라갈 때 '삐슈우웅'(음이 올라가는 휘파람 + 바람 '슈'), 터질 때 묵직한 '펑' + 메아리(0.33초 간격)·잔향 + 타다닥.
@@ -937,6 +971,17 @@ function drawFireworks(t, dt) {
     }
   }
   cx.globalCompositeOperation = "source-over";
+  // 'OO님의 폭죽': 불꽃 아래 2.8초 동안 은은하게 떴다 사라진다
+  for (let i = fwLabels.length - 1; i >= 0; i--) {
+    const L = fwLabels[i]; L.age += dt;
+    if (L.age > 2.8) { fwLabels.splice(i, 1); continue; }
+    const a = Math.min(1, L.age / .35, (2.8 - L.age) / .8);
+    cx.font = `600 ${Math.max(12, 11 * U)}px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`; cx.textAlign = "center";
+    cx.shadowColor = "rgba(0,0,0,.6)"; cx.shadowBlur = 6;
+    cx.fillStyle = L.gold ? `rgba(255,210,100,${a})` : L.mine ? `rgba(243,217,164,${a})` : `rgba(240,236,255,${.9 * a})`;
+    cx.fillText(L.text, Math.max(60, Math.min(W - 60, L.x)), L.y - L.age * 3 * U);
+    cx.shadowBlur = 0;
+  }
 }
 // 조준: 내 캐릭터 머리 위로 터질 높이까지 점선과 동그라미
 function drawAim(t) {
@@ -984,6 +1029,35 @@ const fwRelease = e => {
 cv.addEventListener("pointerup", fwRelease);
 cv.addEventListener("pointercancel", e => { if (aim && e.pointerId === aim.id) { aim = null; syncFwInfo(); } });
 
+// ---------- 닉네임 ----------
+// 처음엔 귀여운 한강 이름을 자동으로 붙여 바로 들어가게 한다(server.js NICK_A·NICK_B와 같은 목록). 폰에 저장해 다음에도 유지
+const NICK_A = ["졸린", "배부른", "꾸벅", "느긋한", "말랑", "반짝", "수줍은", "멍한", "신난", "포근", "늦잠", "산책"];
+const NICK_B = ["수달", "냥이", "오리", "멍멍", "너구리", "토끼", "펭귄", "곰", "부엉", "해달", "고래", "다람"];
+const randNick = () => { for (;;) { const n = NICK_A[Math.random() * NICK_A.length | 0] + NICK_B[Math.random() * NICK_B.length | 0]; if ([...n].length <= 5) return n; } };
+let myNick = ""; try { myNick = localStorage.getItem("hn-nick") || ""; } catch {}
+if ([...myNick].length > 5) myNick = "";                                               // 예전 10자 이름은 새로 뽑는다
+// 운영자: 주소에 ?admin=키 로 한 번 들어오면 폰에 저장하고 주소에서 키를 지운다. 진짜인지는 서버가 ADMIN_KEY로 확인
+let adminKey = ""; try { adminKey = localStorage.getItem("hn-admin") || ""; } catch {}
+{ const q = new URLSearchParams(location.search), k = q.get("admin");
+  if (k != null) { adminKey = k; try { k ? localStorage.setItem("hn-admin", k) : localStorage.removeItem("hn-admin"); } catch {} q.delete("admin"); history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : "")); } }
+let isAdmin = false, forceShowerUntil = 0;
+if (!myNick) myNick = randNick();
+function saveNick(n) { myNick = n; try { localStorage.setItem("hn-nick", n); } catch {} }
+$("nickIn").value = myNick;
+$("nickDice").onclick = () => { $("nickIn").value = randNick(); };
+$("nickIn").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
+function openNickBox() { $("nickEd").value = myNick; $("nickBox").classList.add("on"); }
+const closeNickBox = () => $("nickBox").classList.remove("on");
+$("nickEdDice").onclick = () => { $("nickEd").value = randNick(); };
+$("nickCancel").onclick = closeNickBox;
+$("nickSave").onclick = () => {
+  const n = $("nickEd").value.replace(/\s+/g, " ").trim();
+  if (n && n !== myNick && ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "nick", n }));
+  closeNickBox();
+};
+$("nickEd").addEventListener("keydown", e => { if (e.key === "Enter") $("nickSave").click(); });
+function onMyChar(px, py) { const c = chars.get(me); if (!c) return false; const s = scaleAt(c.y); return Math.abs(px - c.x) < 18 * s && py > c.y - 62 * s && py < c.y + 4 * s; }
+
 // ---------- 루프 ----------
 let last = performance.now();
 function frame(now) {
@@ -1009,7 +1083,7 @@ function roomLabel(no) { return ROOM_NAMES[(no - 1) % ROOM_NAMES.length] + " " +
 
 function connect() {
   const from = (/[?&]from=([\w-]{1,20})/.exec(location.search) || [])[1];   // 어디서 왔는지(?from=kakao 등) 통계용
-  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws" + (from ? "?from=" + from : ""));
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws?nick=" + encodeURIComponent(myNick) + (from ? "&from=" + from : "") + (adminKey ? "&admin=" + encodeURIComponent(adminKey) : ""));
   ws.onopen = () => { retry = 0; $("toast").classList.remove("on"); clearInterval(pingT); pingT = setInterval(() => ws.readyState === 1 && ws.send('{"t":"p"}'), 25000); };
   ws.onmessage = ev => {
     const m = JSON.parse(ev.data);
@@ -1017,8 +1091,12 @@ function connect() {
       chars.clear(); me = m.you; hinted = false;
       $("roomName").textContent = roomLabel(m.room);
       for (const u of m.users) addChar(u, u.id === me);
+      const mine = m.users.find(u => u.id === me);
+      if (mine && mine.nick !== myNick) { toast(`그 이름은 쓸 수 없어서 '${mine.nick}'(으)로 정했어요`, 3500); saveNick(mine.nick); }
       $("cnt").textContent = m.users.length;
       if (!emojis.length) { buildEmoji(m.emojis); buildActs(); }
+      if (m.admin && !isAdmin) { isAdmin = true; buildAdmin(); toast("👑 운영자로 들어왔어요", 3000); }
+      else if (adminKey && !m.admin && !isAdmin) { adminKey = ""; try { localStorage.removeItem("hn-admin"); } catch {} }   // 틀린 키는 버린다
       if (m.fountain != null) startFountain(m.fountain);
       syncActs();
     } else if (m.t === "join") addChar(m.user, true);
@@ -1027,7 +1105,10 @@ function connect() {
     else if (m.t === "leave") removeChar(m.id);
     else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
     else if (m.t === "fw") launchFw(m);
+    else if (m.t === "nick") { const c = chars.get(m.id); if (c) c.nick = m.n; if (m.id === me) { saveNick(m.n); toast(`이제 '${m.n}'(이)에요`, 2200); } }
+    else if (m.t === "nickbad") toast(m.why === "bad" ? "그 이름은 쓸 수 없어요. 다른 이름으로 해 주세요" : m.why === "wait" ? "잠깐 뒤에 다시 바꿔 주세요" : "이름을 적어 주세요", 2500);
     else if (m.t === "fountain") startFountain(0);
+    else if (m.t === "meteor") { forceShowerUntil = performance.now() + 22000; toast("🌠 유성우가 내려요. 소원 하나 빌어 봐요", 4000); }
     else if (m.t === "act") { const c = chars.get(m.id); if (c) c.act = m.a; }
     else if (m.t === "count") $("cnt").textContent = m.room;
     else if (m.t === "full") { toast(m.why === "ip" ? "이 기기에서 너무 많이 접속했어요" : "지금 모든 강변이 꽉 찼어요", 0); retry = 99; }
@@ -1069,6 +1150,16 @@ function buildActs() {
   bar.classList.add("on"); syncActs();
   const more = () => bar.classList.toggle("more", bar.scrollWidth - bar.clientWidth - bar.scrollLeft > 4);   // 오른쪽에 버튼이 더 있으면 흐리게
   bar.addEventListener("scroll", more); addEventListener("resize", more); more();
+}
+// 운영자 버튼: 분수·유성우 바로 켜기 (서버가 운영자인지 다시 확인)
+function buildAdmin() {
+  const bar = $("acts"), sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
+  for (const [id, icon, name] of [["fountain", "⛲", "분수"], ["meteor", "🌠", "유성우"]]) {
+    const b = document.createElement("button"); b.className = "admin"; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", "운영자 " + name);
+    b.onclick = () => ws && ws.readyState === 1 && ws.send(JSON.stringify({ t: "admin", do: id }));
+    bar.appendChild(b);
+  }
+  bar.dispatchEvent(new Event("scroll"));
 }
 function syncActs() { const c = chars.get(me), a = c ? c.act : "sit"; $("acts").querySelectorAll("button[data-act]").forEach(b => b.classList.toggle("sel", b.dataset.act === a)); }
 function buildEmoji(list) {
@@ -1151,6 +1242,7 @@ fetch("amb-river.mp3", { method: "HEAD" }).then(r => {
 }).catch(() => {});
 
 $("go").onclick = () => {
+  const n = $("nickIn").value.replace(/\s+/g, " ").trim(); saveNick(n || myNick);
   $("gate").classList.add("off");
   ensureCtx(); started = true; applySound();
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: "밤 한강 돗자리", artist: "밤 강변 소리" });
