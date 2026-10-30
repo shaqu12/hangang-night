@@ -71,15 +71,27 @@
   #nickRow button, #nickBox button, #wishBox button, #sayBox button, #fbBox button { all: unset; cursor: pointer; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 16px; display: grid; place-items: center; min-height: 40px; }
   #gate small.nickHint { margin: 8px 0 22px; }
   #wishBox small, #sayBox small, #fbBox small { color: var(--dim); font-size: 12px; }
-  #fbBox textarea { border-radius: 14px; text-align: left; resize: none; font-size: 15px; }
-  #fbBtn { all: unset; position: fixed; left: 16px; top: calc(max(12px, env(safe-area-inset-top)) + 50px); padding: 6px 12px; font-size: 12px; color: var(--dim); cursor: pointer; display: none; background: var(--glass); border: 1px solid var(--line); border-radius: 999px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-  #fbBtn.on { display: block; }
+  #fbBox { background: #f6eedb; color: #3b2f25; border: 0; box-shadow: 0 12px 40px rgba(0,0,0,.45); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  #fbBox b { font-size: 16px; } #fbBox small { color: #7a6a58; line-height: 1.5; }
+  #fbBox textarea { border-radius: 10px; text-align: left; resize: none; font-size: 15px; color: #3b2f25; border: 1px solid #e2d5b8; line-height: 28px; padding: 4px 12px;
+    background: repeating-linear-gradient(#fbf6ea 0 27px, #e8dcc2 27px 28px); background-attachment: local; }
+  #fbBox button { border-color: #e2d5b8; color: #7a6a58; }
+  #fbBox .btns button.on { background: #c94a3f; color: #fff; }
+  #inbox { position: fixed; inset: auto 16px 16px 16px; top: calc(max(12px, env(safe-area-inset-top)) + 56px); max-width: 520px; margin: 0 auto; background: rgba(14,20,40,.92); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: none; flex-direction: column; gap: 8px; z-index: 5; }
+  #inbox.on { display: flex; }
+  #inbox .head { display: flex; justify-content: space-between; align-items: center; }
+  #inbox button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; }
+  #inbox small { color: var(--dim); font-size: 12px; }
+  #inboxList { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  #inboxList .item { background: #f6eedb; color: #3b2f25; border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  #inboxList .meta { color: #8a7a66; font-size: 11px; margin-bottom: 4px; }
   #rest { color: var(--dim); font-size: 12px; }
   #nickBox, #wishBox, #sayBox, #fbBox { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); width: min(300px, calc(100vw - 32px)); padding: 16px; border-radius: 20px; display: none; flex-direction: column; gap: 12px; font-size: 14px; text-align: center; }
   #nickBox.on, #wishBox.on, #sayBox.on, #fbBox.on { display: flex; }
   #nickBox > div, #wishBox > div, #sayBox > div, #fbBox > div { display: flex; gap: 6px; }
   #nickBox .btns button, #wishBox .btns button, #sayBox .btns button, #fbBox .btns button { flex: 1; font-size: 14px; color: var(--dim); }
   #nickBox .btns button.on, #wishBox .btns button.on, #sayBox .btns button.on, #fbBox .btns button.on { background: #f3d9a4; color: #1b1a22; font-weight: 700; border-color: transparent; }
+  #fbBox .btns button { color: #7a6a58; border-color: #d9c9a8; } #fbBox .btns button.on { background: #c94a3f; color: #fff; }
 </style>
 </head>
 <body>
@@ -100,8 +112,8 @@
 <div id="fwInfo" class="pill"></div>
 <div id="wishBox" class="pill"><b>🏮 소원 풍등</b><small>한 줄 소원을 적으면 모두에게 잠깐 보여요 (15자, 비워도 돼요)</small><div><input id="wishEd" maxlength="15" autocomplete="off" enterkeyhint="send" aria-label="소원" placeholder="예: 내일은 푹 자기"></div><div class="btns"><button id="wishCancel">닫기</button><button id="wishSend" class="on">띄우기</button></div></div>
 <div id="sayBox" class="pill"><b>💬 말하기 <small>운영자만</small></b><div><input id="sayEd" maxlength="80" autocomplete="off" enterkeyhint="send" aria-label="말할 내용"></div><div class="btns"><button id="sayCancel">닫기</button><button id="saySend" class="on">말하기</button></div></div>
-<div id="fbBox" class="pill"><b>📮 바라는 점</b><small>운영자에게만 전달돼요. 이런 게 있으면 좋겠다, 불편했던 점 무엇이든요 (300자)</small><div><textarea id="fbEd" maxlength="300" rows="4" aria-label="바라는 점"></textarea></div><div class="btns"><button id="fbCancel">닫기</button><button id="fbSend" class="on">보내기</button></div></div>
-<button id="fbBtn" class="pill" aria-label="바라는 점 남기기">📮 바라는 점</button>
+<div id="fbBox"><b>💌 한강 소원 우체통</b><small>"이런 게 있으면 좋겠어요", "이건 조금 불편했어요"<br>무엇이든 편하게 적어 주세요. 한강지기에게만 전해져요.</small><div><textarea id="fbEd" maxlength="300" rows="5" aria-label="편지" placeholder="한강지기에게…"></textarea></div><div class="btns"><button id="fbCancel">다음에</button><button id="fbSend" class="on">우체통에 넣기</button></div></div>
+<div id="inbox"><div class="head"><b>💌 우체통 편지</b><button id="inboxClose">닫기</button></div><small id="inboxNote"></small><div id="inboxList"></div></div>
 <div id="nickBox" class="pill"><b>닉네임 바꾸기</b><div><input id="nickEd" maxlength="5" autocomplete="off" enterkeyhint="done" aria-label="새 닉네임"><button id="nickEdDice" aria-label="다른 이름">🎲</button></div><div class="btns"><button id="nickCancel">닫기</button><button id="nickSave" class="on">바꾸기</button></div></div>
 <div id="gate"><div class="box">
   <h1>밤 한강 돗자리</h1>
@@ -840,6 +852,7 @@ function seatAt(px, py) {
 }
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
+  if (!aiming && onMailbox(e.clientX, e.clientY)) return isAdmin ? openInbox() : openBox("fb");   // 소원 우체통
   if (!aiming && onMyChar(e.clientX, e.clientY)) return openNickBox();                  // 내 캐릭터(이름표)를 누르면 닉네임 바꾸기
   const other = !aiming && charAt(e.clientX, e.clientY);
   if (other) return sendHeart(other.id);                                                 // 다른 사람을 누르면 하트
@@ -1209,8 +1222,11 @@ const closeBox = k => $(k + "Box").classList.remove("on");
 for (const k of ["say", "fb"]) { $(k + "Cancel").onclick = () => closeBox(k); }
 $("saySend").onclick = () => { const v = $("sayEd").value.trim(); if (v && ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "say", text: v })); closeBox("say"); };
 $("sayEd").addEventListener("keydown", e => { if (e.key === "Enter") $("saySend").click(); });
-$("fbSend").onclick = () => { const v = $("fbEd").value.trim(); if (!v) return toast("내용을 적어 주세요", 2000); if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "feedback", text: v })); closeBox("fb"); };
-$("fbBtn").onclick = () => openBox("fb");
+$("fbSend").onclick = () => {
+  const v = $("fbEd").value.trim(); if (!v) return toast("한 줄이라도 적어 주세요", 2000);
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "feedback", text: v }));
+  closeBox("fb");
+};
 function openWish() { $("wishEd").value = ""; $("wishBox").classList.add("on"); setTimeout(() => $("wishEd").focus(), 50); }
 const closeWish = () => $("wishBox").classList.remove("on");
 let lastLanternSent = -1e9;
@@ -1221,6 +1237,70 @@ $("wishSend").onclick = () => {
   closeWish();
 };
 $("wishEd").addEventListener("keydown", e => { if (e.key === "Enter") $("wishSend").click(); });
+
+// ---------- 한강 소원 우체통 ----------
+// 산책로 오른쪽 끝에 빨간 우체통. 누구나 눌러 편지(바라는 점)를 넣고, 운영자가 누르면 편지함이 열린다. 편지가 쌓이면 투입구에 꽂혀 보인다
+let letterCount = 0;
+const envelopes = [];
+function mailboxPos() { const s = Math.max(1.25, Math.min(1.9, U * 1.6)); return { x: W - Math.max(40, 30 * U), y: H * Y.path0 + 2 * U, s }; }
+function drawMailbox(t) {
+  const { x, y, s } = mailboxPos(), w = 13 * s, h = 22 * s, top = y - 24 * s - h;
+  cx.fillStyle = "rgba(0,0,0,.3)"; cx.beginPath(); cx.ellipse(x, y + 1 * s, 12 * s, 3 * s, 0, 0, TAU); cx.fill();
+  cx.fillStyle = "#3a2e2a"; cx.fillRect(x - 1.6 * s, y - 24 * s, 3.2 * s, 24 * s);                                       // 기둥
+  const g = cx.createRadialGradient(x, top + h / 2, 0, x, top + h / 2, 34 * s); g.addColorStop(0, `rgba(255,190,140,${.22 + .05 * Math.sin(t * 1.5)})`); g.addColorStop(1, "rgba(255,190,140,0)");
+  cx.globalCompositeOperation = "lighter"; cx.fillStyle = g; cx.fillRect(x - 34 * s, top + h / 2 - 34 * s, 68 * s, 68 * s); cx.globalCompositeOperation = "source-over";
+  cx.fillStyle = "#c63c34"; cx.beginPath(); cx.moveTo(x - w, top + h); cx.lineTo(x - w, top + 5 * s); cx.quadraticCurveTo(x - w, top - 3 * s, x, top - 3 * s); cx.quadraticCurveTo(x + w, top - 3 * s, x + w, top + 5 * s); cx.lineTo(x + w, top + h); cx.closePath(); cx.fill();
+  cx.fillStyle = "rgba(255,255,255,.14)"; cx.fillRect(x - w + 1.5 * s, top + 3 * s, 2.2 * s, h - 5 * s);
+  cx.fillStyle = "#2a1513"; cx.fillRect(x - 7 * s, top + 6 * s, 14 * s, 2.2 * s);                                          // 투입구
+  const n = Math.min(5, letterCount);
+  for (let i = 0; i < n; i++) {                                                                                          // 꽂힌 편지
+    const ex = x - 5 * s + i * 2.6 * s, tilt = (i % 2 ? .12 : -.1);
+    cx.save(); cx.translate(ex, top + 6.5 * s); cx.rotate(tilt); cx.fillStyle = i % 2 ? "#f6eedb" : "#fbe3e0"; cx.fillRect(-2 * s, -6 * s, 4.4 * s, 6.5 * s); cx.restore();
+  }
+  cx.fillStyle = "#f6eedb"; cx.font = `700 ${4.6 * s}px sans-serif`; cx.textAlign = "center"; cx.fillText("소원", x, top + 14 * s); cx.fillText("우체통", x, top + 19.5 * s);
+  const by = top - 9 * s + Math.sin(t * 2) * 1.5 * s;                                                                   // 떠 있는 이름표
+  cx.font = `600 ${Math.max(11, 6.6 * s)}px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`;
+  const label = letterCount ? `💌 소원 우체통 · ${letterCount}` : "💌 소원 우체통";
+  const lw = cx.measureText(label).width + 12;
+  cx.fillStyle = "rgba(14,20,40,.6)"; cx.beginPath(); cx.roundRect ? cx.roundRect(Math.min(W - lw - 4, x - lw / 2), by - 11 * s, lw, 14 * s, 7 * s) : cx.rect(x - lw / 2, by - 11 * s, lw, 14 * s); cx.fill();
+  cx.fillStyle = "rgba(246,238,219,.95)"; cx.fillText(label, Math.min(W - lw / 2 - 4, x), by - 1.2 * s);
+  // 날아가는 편지
+  for (let i = envelopes.length - 1; i >= 0; i--) {
+    const e = envelopes[i]; e.age += 1 / 60; const u = Math.min(1, e.age / .9), k = u * u * (3 - 2 * u);
+    const ex = e.x0 + (x - e.x0) * k, ey = e.y0 + (top + 6 * s - e.y0) * k - Math.sin(k * Math.PI) * 60 * U;
+    cx.save(); cx.translate(ex, ey); cx.rotate(Math.sin(e.age * 8) * .2); cx.globalAlpha = u > .9 ? (1 - u) * 10 : 1;
+    cx.fillStyle = "#f6eedb"; cx.fillRect(-7 * s, -4.5 * s, 14 * s, 9 * s);
+    cx.strokeStyle = "#c63c34"; cx.lineWidth = 1 * s; cx.beginPath(); cx.moveTo(-7 * s, -4.5 * s); cx.lineTo(0, 1 * s); cx.lineTo(7 * s, -4.5 * s); cx.stroke();
+    cx.fillStyle = "#e5484d"; cx.font = `${6 * s}px serif`; cx.fillText("♥", 0, 3.5 * s);
+    cx.restore();
+    if (u >= 1) envelopes.splice(i, 1);
+  }
+}
+function flyLetter() { const c = chars.get(me); envelopes.push({ x0: c ? c.x : W / 2, y0: c ? c.y - 40 * scaleAt(c.y) : H * .8, age: 0 }); }
+function onMailbox(px, py) { const { x, y, s } = mailboxPos(); return Math.abs(px - x) < 22 * s && py > y - 62 * s && py < y + 6 * s; }
+// 운영자 편지함: 서버 목록 + 이 폰에 모아 둔 사본을 합쳐 보여 준다(서버가 재시작돼도 폰 사본은 남음)
+function loadLetters() { try { return JSON.parse(localStorage.getItem("hn-letters") || "[]"); } catch { return []; } }
+function cacheLetters(list) {
+  const all = loadLetters(), seen = new Set(all.map(f => f.id || f.at + f.text));
+  for (const f of list) { const k = f.id || f.at + f.text; if (!seen.has(k)) { seen.add(k); all.push(f); } }
+  all.sort((a, b) => a.at < b.at ? 1 : -1); try { localStorage.setItem("hn-letters", JSON.stringify(all.slice(0, 1000))); } catch {}
+  return all;
+}
+function renderInbox(note) {
+  const list = $("inboxList"), all = loadLetters(); list.textContent = "";
+  for (const f of all) {
+    const d = document.createElement("div"); d.className = "item"; const m = document.createElement("div"); m.className = "meta";
+    m.textContent = `${new Date(f.at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · ${f.nick} · ${f.room}번 방`;
+    d.append(m, document.createTextNode(f.text)); list.appendChild(d);
+  }
+  $("inboxNote").textContent = (note ? note + " · " : "") + (all.length ? `편지 ${all.length}통 (이 폰에도 보관돼요)` : "아직 편지가 없어요");
+}
+async function openInbox() {
+  $("inbox").classList.add("on"); renderInbox("불러오는 중");
+  const r = await fetch("/admin/feedback", { headers: { "x-admin-key": adminKey } }).catch(() => null);
+  if (r && r.ok) { const { items } = await r.json(); cacheLetters(items); renderInbox(); } else renderInbox("서버에서 못 불러와서 폰 사본만 보여요");
+}
+$("inboxClose").onclick = () => $("inbox").classList.remove("on");
 
 // ---------- 루프 ----------
 let last = performance.now();
@@ -1235,6 +1315,7 @@ function frame(now) {
   const mine = chars.get(me), picking = canPick();
   const glowBase = !picking ? 0 : mine.state === "sit" ? .2 : .6;
   seats.forEach((s, i) => drawMat(s, glowBase && !seatTaken(i) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
+  drawMailbox(t);
   for (const c of chars.values()) stepChar(c, dt);
   [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
   drawAim(t);
@@ -1261,7 +1342,8 @@ function connect() {
       const mine = m.users.find(u => u.id === me);
       if (mine && mine.nick !== myNick) { toast(`그 이름은 쓸 수 없어서 '${mine.nick}'(으)로 정했어요`, 3500); saveNick(mine.nick); }
       $("cnt").textContent = m.users.length;
-      if (!emojis.length) { buildEmoji(m.emojis); buildActs(); $("fbBtn").classList.add("on"); }
+      if (!emojis.length) { buildEmoji(m.emojis); buildActs(); }
+      letterCount = m.letters || 0;
       if (m.admin && !isAdmin) { isAdmin = true; buildAdmin(); toast("👑 운영자로 들어왔어요", 3000); }
       else if (adminKey && !m.admin && !isAdmin) { adminKey = ""; try { localStorage.removeItem("hn-admin"); } catch {} }   // 틀린 키는 버린다
       if (m.fountain != null) startFountain(m.fountain);
@@ -1282,8 +1364,10 @@ function connect() {
     else if (m.t === "heart") { hearts.push({ from: m.from, to: m.to, age: 0 }); if (m.to === me) { const f = chars.get(m.from); toast(`💗 ${f ? f.nick : "누군가"}님이 하트를 보냈어요`, 2500); } }
     else if (m.t === "adminHere") adminOn = m.on;                                         // 알림 없이 오로라만
     else if (m.t === "say") { const c = chars.get(m.id); if (c) c.say = { text: m.text, at: performance.now() }; }
-    else if (m.t === "feedbackOk") toast("📮 잘 전달했어요. 고마워요", 2500);
-    else if (m.t === "feedbackBad") toast(m.why === "bad" ? "고운 말로 적어 주세요" : m.why === "wait" ? "조금 뒤에 다시 보내 주세요 (1분에 하나, 하루 5개)" : "내용을 적어 주세요", 2800);
+    else if (m.t === "feedbackOk") { flyLetter(); setTimeout(() => toast("💌 편지가 우체통에 들어갔어요. 고마워요, 꼭 읽어 볼게요", 4000), 900); }
+    else if (m.t === "letters") letterCount = m.n;
+    else if (m.t === "letter") { cacheLetters([m.f]); if ($("inbox").classList.contains("on")) renderInbox(); else toast("💌 우체통에 새 편지가 왔어요", 2500); }
+    else if (m.t === "feedbackBad") toast(m.why === "bad" ? "고운 말로 다시 적어 주세요" : m.why === "wait" ? "편지는 1분에 한 통, 하루 다섯 통까지예요" : "한 줄이라도 적어 주세요", 2800);
     else if (m.t === "restart") toast("잠깐 새 단장 중이에요. 자리는 그대로 돌아와요", 0);
     else if (m.t === "leave") removeChar(m.id);
     else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
@@ -1340,11 +1424,11 @@ function buildActs() {
 // 운영자 버튼: 분수·유성우 바로 켜기 (서버가 운영자인지 다시 확인)
 function buildAdmin() {
   const bar = $("acts"), sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
-  for (const [id, icon, name] of [["say", "💬", "말하기"], ["fountain", "⛲", "분수"], ["meteor", "🌠", "유성우"], ["inbox", "📮", "바라는 점"]]) {
+  for (const [id, icon, name] of [["say", "💬", "말하기"], ["fountain", "⛲", "분수"], ["meteor", "🌠", "유성우"], ["inbox", "💌", "편지함"]]) {
     const b = document.createElement("button"); b.className = "admin"; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", "운영자 " + name);
     b.onclick = () => {
       if (id === "say") return openBox("say");
-      if (id === "inbox") return window.open("/admin", "_blank");
+      if (id === "inbox") return openInbox();
       if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "admin", do: id }));
     };
     bar.appendChild(b);

@@ -45,15 +45,17 @@ function cleanNick(raw, admin, max = NICK_MAX) {
 }
 // 운영자: Render 환경 변수 ADMIN_KEY와 같은 키로 들어온 사람. 왕관 이름표, 황금 폭죽(1초 간격), 분수·유성우 켜기
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
-// 바라는 점 보관: 메모리 + 파일(Render 무료는 재시작·배포·잠들 때 디스크가 지워짐) + 로그 한 줄 + (있으면) 디스코드 웹훅으로 영구 보관
-const FB_FILE = path.join(__dirname, "feedback.json"), FEEDBACK_WEBHOOK = process.env.FEEDBACK_WEBHOOK || "";
+// 소원 우체통(바라는 점) 보관: 메모리 + 파일 + 서버 로그 한 줄. Render 무료는 재시작·배포·잠들 때 디스크가 지워지므로
+// 새 편지는 접속 중인 운영자 폰으로 바로 보내 폰에 사본을 쌓고(운영자가 볼 때마다 합침), 서버가 꺼질 때 남은 편지를 로그에 한 번 더 남긴다
+const FB_FILE = path.join(__dirname, "feedback.json");
 let feedback = []; try { feedback = JSON.parse(fs.readFileSync(FB_FILE, "utf8")); } catch {}
 const fbCount = new Map();   // IP 해시별 오늘 보낸 수 (rollDay 때 비움)
 function saveFeedback(f) {
+  f.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   feedback.push(f); if (feedback.length > 500) feedback.shift();
   fs.writeFile(FB_FILE, JSON.stringify(feedback), () => {});
-  console.log("[바라는점] " + JSON.stringify(f));
-  if (FEEDBACK_WEBHOOK) fetch(FEEDBACK_WEBHOOK, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: `📮 ${f.nick} (${f.room}번 방): ${f.text}`.slice(0, 1900), allowed_mentions: { parse: [] } }) }).catch(() => {});
+  console.log("[편지] " + JSON.stringify(f));
+  for (const r of rooms) { broadcast(r, { t: "letters", n: feedback.length }); for (const o of r.users.values()) if (o.admin) send(o.ws, { t: "letter", f }); }
 }
 const isAdminKey = k => ADMIN_KEY.length >= 8 && typeof k === "string" && k.length === ADMIN_KEY.length && require("crypto").timingSafeEqual(Buffer.from(k), Buffer.from(ADMIN_KEY));
 const WISH_MAX = 15, LANTERN_GAP = 15000, HEART_GAP = 1500;   // 소원 풍등 글자 수·간격, 하트 간격
@@ -68,7 +70,7 @@ const server = http.createServer((req, res) => {
   if (req.url === "/admin/feedback") {
     if (!isAdminKey(req.headers["x-admin-key"])) { res.writeHead(403); return res.end("forbidden"); }
     res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-    return res.end(JSON.stringify({ items: feedback.slice().reverse(), webhook: !!FEEDBACK_WEBHOOK }));
+    return res.end(JSON.stringify({ items: feedback.slice().reverse() }));
   }
   if (req.url === "/stats") {
     res.writeHead(200, { "content-type": "application/json" });
@@ -150,7 +152,7 @@ wss.on("connection", (ws, req) => {
   u.nick = (u.admin ? cleanNick(asked, "free", 12) : cleanNick(asked)) || randNick();   // 운영자 닉네임은 12자까지, 거르지 않음
   room.users.set(u.id, u);
   ws.alive = true;
-  send(ws, { t: "init", you: u.id, admin: u.admin, adminHere: adminHere(room) || u.admin, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
+  send(ws, { t: "init", you: u.id, admin: u.admin, letters: feedback.length, adminHere: adminHere(room) || u.admin, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
   broadcast(room, { t: "join", user: pub(u) }, ws);
   if (u.admin) broadcast(room, { t: "adminHere", on: true, nick: u.nick }, ws);
   sendCounts();
@@ -245,6 +247,7 @@ setInterval(() => {
 
 // Render가 새 버전을 올리며 서버를 끌 때: 모두에게 알리고 닫는다. 페이지는 바로 다시 붙고 자리·행동·닉네임을 되찾는다
 process.on("SIGTERM", () => {
+  for (const f of feedback) console.log("[편지 보관] " + JSON.stringify(f));             // 디스크가 지워지기 전에 로그에 한 번 더
   for (const r of rooms) broadcast(r, { t: "restart" });
   setTimeout(() => { for (const c of wss.clients) c.close(1012, "restart"); setTimeout(() => process.exit(0), 300); }, 200);
 });
