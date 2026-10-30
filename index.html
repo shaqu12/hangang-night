@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#070b1c">
 <title>밤 한강 돗자리</title>
+<meta name="description" content="밤 한강 강변에 돗자리를 펴고 멍때리기. 여기 앉은 사람들은 모두 지금 접속한 사람이에요.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="밤 한강 돗자리">
+<meta property="og:description" content="지금 접속한 사람들이 한강에 모여 앉아 야경 보며 쉬는 곳. 말 없이 이모지만.">
+<meta property="og:image" content="%ORIGIN%/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="%ORIGIN%/">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root { --ink: #eef1f8; --dim: rgba(238,241,248,.62); --glass: rgba(14,20,40,.55); --line: rgba(255,255,255,.12); }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -653,7 +662,8 @@ function toast(msg, ms) { const el = $("toast"); el.textContent = msg; el.classL
 function roomLabel(no) { return ROOM_NAMES[(no - 1) % ROOM_NAMES.length] + " " + String(Math.ceil(no / ROOM_NAMES.length)).padStart(2, "0"); }
 
 function connect() {
-  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  const from = (/[?&]from=([\w-]{1,20})/.exec(location.search) || [])[1];   // 어디서 왔는지(?from=kakao 등) 통계용
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws" + (from ? "?from=" + from : ""));
   ws.onopen = () => { retry = 0; $("toast").classList.remove("on"); clearInterval(pingT); pingT = setInterval(() => ws.readyState === 1 && ws.send('{"t":"p"}'), 25000); };
   ws.onmessage = ev => {
     const m = JSON.parse(ev.data);
