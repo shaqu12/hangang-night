@@ -266,7 +266,7 @@ function makeClouds() {
 
 // ---------- 움직이는 풍경 ----------
 const FOUNTAIN_LEN = 25;   // server.js FOUNTAIN_LEN(ms)과 같게
-let fountainStart = -999;
+let fountainStart = -999, meteors = [], shownShower = -1;
 let train = null, nextTrain = 6, boat = null, nextBoat = 3;
 function hsl2rgb(h) { const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (.65 - .28 * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return `${f(0)},${f(8)},${f(4)}`; }
 function streak(x, y, w, a, col) { cx.fillStyle = `rgba(${col},${a})`; cx.fillRect(x - w / 2, y, w, 1.3 * U); }
@@ -293,6 +293,22 @@ function drawScene(t, dt) {
     gs.addColorStop(0, `rgba(255,255,255,${.9 * (1 - k)})`); gs.addColorStop(1, "rgba(255,255,255,0)");
     cx.strokeStyle = gs; cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(hx, hy); cx.lineTo(hx - shoot.dx * 30 * U, hy - 16 * U); cx.stroke();
     if (k >= 1) { shoot = null; nextShoot = 25 + Math.random() * 35; }
+  }
+  // 유성우: 3분마다 22초 동안. 시계로 정해서 접속한 모두가 같은 때 본다(서버 필요 없음). 꼬리 달린 별이 1초에 1~2개
+  const sh = (Date.now() / 1000 + 37) % 180, showerOn = sh < 22, showerId = Math.floor((Date.now() / 1000 + 37) / 180);
+  if (showerOn && started && showerId !== shownShower) { shownShower = showerId; if (sh < 3) toast("🌠 유성우가 내려요. 소원 하나 빌어 봐요", 4000); }
+  if (showerOn && meteors.length < 8 && Math.random() < dt * 1.6) {
+    const dir = Math.random() < .7 ? -1 : 1;
+    meteors.push({ x: W * (.1 + Math.random() * .85), y: H * (.02 + Math.random() * .2), k: 0, life: .7 + Math.random() * .6, dx: dir * (.8 + Math.random() * .6), len: (50 + Math.random() * 70) * U, b: .6 + Math.random() * .4 });
+  }
+  for (let i = meteors.length - 1; i >= 0; i--) {
+    const m = meteors[i]; m.k += dt / m.life;
+    const k = m.k, hx = m.x + m.dx * k * m.len, hy = m.y + k * m.len * .6, a = Math.sin(Math.min(1, k) * Math.PI) * m.b;
+    const tx = hx - m.dx * 34 * U, ty = hy - 20 * U, g = cx.createLinearGradient(hx, hy, tx, ty);
+    g.addColorStop(0, `rgba(235,240,255,${a})`); g.addColorStop(.3, `rgba(170,200,255,${a * .5})`); g.addColorStop(1, "rgba(170,200,255,0)");
+    cx.strokeStyle = g; cx.lineWidth = 1.4 * U; cx.lineCap = "round"; cx.beginPath(); cx.moveTo(hx, hy); cx.lineTo(tx, ty); cx.stroke();
+    cx.fillStyle = `rgba(255,255,255,${a})`; cx.fillRect(hx - .9 * U, hy - .9 * U, 1.8 * U, 1.8 * U);
+    if (k >= 1) meteors.splice(i, 1);
   }
   for (const c of clouds) { c.x += c.v * dt; if (c.x > W + 20) c.x = -c.w - 20; cx.drawImage(c.c, c.x, c.y, c.w, c.h); }
   // 도시 + 물에 비친 도시 (가로줄마다 물결에 따라 좌우로 일렁임)
@@ -366,33 +382,41 @@ function drawBridge(t, dt, dY, pY, bY) {
   // 교각
   cx.fillStyle = "#090d22";
   for (let x = x0; x < W + span; x += span) { cx.fillRect(x - 3.5 * U, dY, 7 * U, hit - dY); cx.fillRect(x - 5 * U, dY + 2 * U, 10 * U, 2 * U); }
-  // 분수
+  // 분수: 반포대교처럼 상판 옆 노즐마다 물줄기가 부채꼴로 길게 휘어 강물로 떨어진다. 색은 화면 가로로 빨강→분홍→보라→파랑이 천천히 흐르고,
+  // 물이 떨어지는 줄에는 안개, 강물에는 길게 비친 색. 쇼 때만 그리므로 평소 부담은 0
   if (fade > 0) {
-    const n = Math.ceil(W / (5.5 * U));
+    const grow = Math.min(1, age / 4), gap = 18 * U, n = Math.ceil(W / gap) + 4, sy = dY + 2.5 * U, land0 = hit + 2 * U, deep = (bY - hit) * .3;
+    const hueAt = x => 285 + 70 * Math.sin(TAU * (x / W * .8 + t * .02));            // 빨강·분홍·보라·파랑 사이를 부드럽게
     cx.globalCompositeOperation = "lighter"; cx.lineCap = "round";
-    for (let pass = 0; pass < 2; pass++) {                          // 0: 물줄기, 1: 물에 비친 물줄기
-      for (let i = 0; i <= n; i++) {
-        const x = i * 5.5 * U, hue = (300 + 75 * Math.sin(t * .5 + i * .07)) % 360, sway = Math.sin(t * 1.7 + i * .45);   // 반포대교처럼 빨강·분홍·보라·파랑
-        const len = (hit - dY - 3 * U) * (.92 + .08 * sway), out = (9 + 3 * sway) * U * (.5 + .5 * Math.min(1, age / 4));
-        const sy = dY + 3 * U, ey = sy + len;
-        cx.strokeStyle = `hsla(${hue},95%,${pass ? 60 : 70}%,${(pass ? .16 : .5) * fade})`;
-        cx.lineWidth = (pass ? 1.6 : 1.2) * U;
-        cx.beginPath();
-        if (!pass) { cx.moveTo(x, sy); cx.quadraticCurveTo(x + out, sy + len * .15, x + out * .8, ey); }
-        else { const w = Math.sin(t * 1.4 + i) * 1.5 * U; cx.moveTo(x + out * .8 + w, hit + (hit - ey) * -1 * .2); cx.quadraticCurveTo(x + out + w, hit + len * .75, x + w * .5, hit + len * 1.1); }
-        cx.stroke();
+    for (let i = -4; i < n; i++) {
+      const x = i * gap, sw = Math.sin(t * 1.1 + i * .5);
+      for (let j = 0; j < 3; j++) {                                                   // 노즐 하나에서 멀리·중간·가까이 3줄기 = 부채꼴
+        const reach = (34 + j * 15 + 3 * sw) * U * grow, lift = (6 + j * 3) * U * grow;
+        const ex = x + reach, ey = land0 + deep * (.15 + j * .3) * grow, hue = hueAt(x + reach * .5);
+        const path = () => { cx.beginPath(); cx.moveTo(x, sy); cx.bezierCurveTo(x + reach * .35, sy - lift, x + reach * .85, sy - lift * .3, ex, ey); };
+        cx.setLineDash([]);
+        cx.strokeStyle = `hsla(${hue},95%,60%,${.06 * fade})`; cx.lineWidth = 3.2 * U; path(); cx.stroke();          // 은은한 빛
+        cx.strokeStyle = `hsla(${hue},92%,70%,${(.34 - j * .06) * fade})`; cx.lineWidth = .9 * U; path(); cx.stroke();   // 물줄기
+        cx.strokeStyle = `hsla(${hue},80%,90%,${.5 * fade})`; cx.lineWidth = .8 * U;                                    // 흘러가는 물 반짝임
+        cx.setLineDash([1.5 * U, 11 * U]); cx.lineDashOffset = -t * 40 * U - i * 7 - j * 5; path(); cx.stroke();
       }
     }
-    // 물이 떨어지는 곳의 물보라와 색 번짐
-    for (let k = 0; k < 8; k++) {
-      const x = k * W / 8, hue = (300 + 75 * Math.sin(t * .5 + (x / (5.5 * U)) * .07)) % 360;
-      const g = cx.createLinearGradient(0, hit - 10 * U, 0, hit + 26 * U);
-      g.addColorStop(0, `hsla(${hue},90%,65%,0)`); g.addColorStop(.3, `hsla(${hue},90%,65%,${.2 * fade})`); g.addColorStop(1, `hsla(${hue},90%,65%,0)`);
-      cx.fillStyle = g; cx.fillRect(x, hit - 10 * U, W / 8 + 1, 36 * U);
+    cx.setLineDash([]);
+    // 떨어지는 줄의 안개 띠
+    for (let k = 0; k < 12; k++) {
+      const x = k * W / 12, hue = hueAt(x + W / 24);
+      const g = cx.createLinearGradient(0, land0 - 3 * U, 0, land0 + deep * 1.4);
+      g.addColorStop(0, `hsla(${hue},90%,70%,0)`); g.addColorStop(.4, `hsla(${hue},90%,70%,${.13 * fade * grow})`); g.addColorStop(1, `hsla(${hue},90%,70%,0)`);
+      cx.fillStyle = g; cx.fillRect(x, land0 - 3 * U, W / 12 + 1, deep * 1.4 + 3 * U);
     }
-    for (let k = 0; k < 40; k++) {
-      const x = ((k * 97.13 + t * 13) % W), y = hit - Math.abs(Math.sin(t * 3 + k)) * 5 * U;
-      cx.fillStyle = `rgba(255,255,255,${.5 * fade})`; cx.fillRect(x, y, 1, 1);
+    // 강물에 길게 비친 색
+    for (let i = 0; i < n; i++) {
+      const x = i * gap + gap / 2, rgb = hsl2rgb(hueAt(x));
+      for (let k = 0; k < 3; k++) streak(x + Math.sin(t * 1.4 + i + k) * 1.5 * U, land0 + deep * 1.1 + k * 5 * U, (6 - k) * U, (.14 - k * .035) * fade * grow, rgb);
+    }
+    for (let k = 0; k < 40; k++) {                                                    // 물보라
+      const x = ((k * 97.13 + t * 13) % W), y = land0 + ((k * .317) % 1) * deep - Math.abs(Math.sin(t * 3 + k)) * 3 * U;
+      cx.fillStyle = `rgba(255,255,255,${.4 * fade * grow})`; cx.fillRect(x, y, 1.2, 1.2);
     }
     cx.globalCompositeOperation = "source-over";
   }
@@ -824,29 +848,29 @@ function fwWhistle(S, t0, dur, p, vol) {
   o.connect(og); og.connect(S.bus); og.connect(S.verb);
   const h = c.createBufferSource(), hf = c.createBiquadFilter(), hg = c.createGain();                              // '슈' 하는 바람
   h.buffer = S.hissBuf; hf.type = "bandpass"; hf.Q.value = 1.2; hf.frequency.setValueAtTime(1800, t0); hf.frequency.exponentialRampToValueAtTime(4500, t0 + dur);
-  hg.gain.setValueAtTime(.16 * vol, t0); hg.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+  hg.gain.setValueAtTime(.1 * vol, t0); hg.gain.exponentialRampToValueAtTime(.001, t0 + dur);
   h.connect(hf); hf.connect(hg); hg.connect(S.bus);
   [o, vib, h].forEach(n => { n.start(t0); n.stop(t0 + dur + .05); });
 }
 function fwBoom(S, t0, p, vol, crackle) {
   const c = S.ctx, b = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
-  b.buffer = S.boomBuf; lp.type = "lowpass"; lp.frequency.setValueAtTime(1400 + 600 * p, t0); lp.frequency.exponentialRampToValueAtTime(140, t0 + .35);
-  g.gain.setValueAtTime((1.1 + .5 * p) * vol, t0);
+  b.buffer = S.boomBuf; lp.type = "lowpass"; lp.frequency.setValueAtTime(650 + 250 * p, t0); lp.frequency.exponentialRampToValueAtTime(120, t0 + .45);   // 고음을 깎아 멀리서 '펑'
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime((1.1 + .4 * p) * vol, t0 + .018);                 // 앞머리를 살짝 눌러 덜 날카롭게
   b.connect(lp); lp.connect(g); g.connect(S.bus); g.connect(S.verb); g.connect(S.dly); b.start(t0);
   const k = c.createOscillator(), kg = c.createGain();                                                            // 가슴 울리는 '둥'
   k.frequency.setValueAtTime(90, t0); k.frequency.exponentialRampToValueAtTime(38, t0 + .4);
-  kg.gain.setValueAtTime(.9 * vol, t0); kg.gain.exponentialRampToValueAtTime(.001, t0 + .55);
+  kg.gain.setValueAtTime(.55 * vol, t0); kg.gain.exponentialRampToValueAtTime(.001, t0 + .55);
   k.connect(kg); kg.connect(S.bus); kg.connect(S.dly); k.start(t0); k.stop(t0 + .6);
   if (crackle) for (let i = 0; i < 18; i++) {                                                                     // 끝에 타다닥
     const s = c.createBufferSource(), f = c.createBiquadFilter(), cg = c.createGain(), at = t0 + .45 + Math.random() * 1.3;
-    s.buffer = S.crackBuf; f.type = "highpass"; f.frequency.value = 2500; cg.gain.value = (.15 + Math.random() * .2) * vol;
+    s.buffer = S.crackBuf; f.type = "bandpass"; f.frequency.value = 1800; cg.gain.value = (.04 + Math.random() * .05) * vol;
     s.connect(f); f.connect(cg); cg.connect(S.bus); cg.connect(S.verb); s.start(at);
   }
 }
 function fwSound() {
   if (!actx || !SND.power || !started) return null;
   if (!fwSnd) fwSnd = makeFwSnd(actx, actx.destination);
-  fwSnd.bus.gain.value = curve(SND.master) * .6;                                   // 소리 패널 전체 크기를 따른다
+  fwSnd.bus.gain.value = curve(SND.master) * .38;                                   // 소리 패널 전체 크기를 따른다
   return fwSnd;
 }
 function whistle(dur, p, mine) {
