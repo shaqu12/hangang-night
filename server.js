@@ -1,4 +1,5 @@
 // 밤 한강 돗자리: 접속한 사람마다 캐릭터 하나. 방 하나에 돗자리 CAP개, 차면 다음 방.
+// 들어오면 산책로에 서 있다가, 빈 돗자리를 누르면 그 자리로 간다(먼저 요청이 도착한 사람이 차지).
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -11,6 +12,7 @@ const PER_IP = +process.env.PER_IP || 4;           // IP당 동시 접속
 const EMOJIS = ["🌙", "✨", "🍜", "👋", "💤", "❤️"];
 const COLORS = ["#e9a87c", "#8fb8de", "#b8d98f", "#e6c76f", "#d79bc4", "#9fd6cf", "#f0f0ea", "#c9a6f2", "#f29b9b", "#7fa3c9"];
 const EMO_GAP = 1200;        // 이모지 최소 간격(ms)
+const SIT_GAP = 600;         // 자리 옮기기 최소 간격(ms)
 
 const page = fs.readFileSync(path.join(__dirname, "index.html"));
 const server = http.createServer((req, res) => {
@@ -33,12 +35,6 @@ function pickRoom() {
   if (!r && rooms.length < MAX_ROOMS) { r = { no: rooms.length + 1, users: new Map() }; rooms.push(r); }
   return r;
 }
-function pickSeat(room) {
-  const taken = new Set([...room.users.values()].map(u => u.seat));
-  const free = [];
-  for (let i = 0; i < CAP; i++) if (!taken.has(i)) free.push(i);
-  return free[Math.floor(Math.random() * free.length)];
-}
 const pub = u => ({ id: u.id, seat: u.seat, color: u.color });
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 function broadcast(room, msg, except) {
@@ -58,7 +54,7 @@ wss.on("connection", (ws, req) => {
   if (!room) { send(ws, { t: "full", why: "rooms" }); return ws.close(); }
   ips.set(ip, (ips.get(ip) || 0) + 1);
 
-  const u = { id: nextId++, seat: pickSeat(room), color: COLORS[Math.floor(Math.random() * COLORS.length)], ws, lastEmo: 0 };
+  const u = { id: nextId++, seat: null, color: COLORS[Math.floor(Math.random() * COLORS.length)], ws, lastEmo: 0, lastSit: 0 };
   room.users.set(u.id, u);
   ws.alive = true;
   send(ws, { t: "init", you: u.id, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub) });
@@ -74,6 +70,13 @@ wss.on("connection", (ws, req) => {
       if (now - u.lastEmo < EMO_GAP) return;
       u.lastEmo = now;
       broadcast(room, { t: "emo", id: u.id, e: m.e });
+    } else if (m.t === "sit" && Number.isInteger(m.seat) && m.seat >= 0 && m.seat < CAP && m.seat !== u.seat) {
+      const now = Date.now();
+      if (now - u.lastSit < SIT_GAP) return;
+      u.lastSit = now;
+      for (const o of room.users.values()) if (o.seat === m.seat) return send(ws, { t: "taken", seat: m.seat });
+      u.seat = m.seat;
+      broadcast(room, { t: "seat", id: u.id, seat: u.seat });
     }
   });
   ws.on("close", () => {
