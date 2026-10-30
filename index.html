@@ -84,14 +84,17 @@
     background: repeating-linear-gradient(#fbf6ea 0 27px, #e8dcc2 27px 28px); background-attachment: local; }
   #fbBox button { border-color: #e2d5b8; color: #7a6a58; }
   #fbBox .btns button.on { background: #c94a3f; color: #fff; }
-  #inbox { position: fixed; inset: auto 16px 16px 16px; top: calc(max(12px, env(safe-area-inset-top)) + 56px); max-width: 520px; margin: 0 auto; background: rgba(14,20,40,.92); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: none; flex-direction: column; gap: 8px; z-index: 5; }
-  #inbox.on { display: flex; }
-  #inbox .head { display: flex; justify-content: space-between; align-items: center; }
-  #inbox button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; }
-  #inbox small { color: var(--dim); font-size: 12px; }
-  #inboxList { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-  #inboxList .item { background: #f6eedb; color: #3b2f25; border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-  #inboxList .meta { color: #8a7a66; font-size: 11px; margin-bottom: 4px; }
+  #fbBox .btns { flex-direction: column; } #fbBox .btns button { min-height: 46px; font-size: 15px; }
+  #fbBox .btns #fbSelf { background: #e9e0cb; color: #4d4033; } #fbBox .btns #fbHear { background: #c94a3f; color: #fff; font-weight: 700; }
+  #fbBox #fbCancel { border: 0; min-height: 28px; font-size: 13px; color: #9a8a76; }
+  #replyBox { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.92); width: min(320px, calc(100vw - 32px)); padding: 20px 20px 14px; border-radius: 20px; background: #f6eedb; color: #3b2f25; box-shadow: 0 12px 40px rgba(0,0,0,.5); display: none; flex-direction: column; gap: 12px; opacity: 0; transition: opacity .5s, transform .5s; z-index: 6; }
+  #replyBox.on { display: flex; } #replyBox.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #replyBox b { font-size: 15px; text-align: center; } #replyBox p { margin: 0; font-size: 15.5px; line-height: 1.75; white-space: pre-wrap; word-break: keep-all; min-height: 5em; }
+  #replyBox .sign { text-align: right; color: #8a7a66; font-size: 13px; }
+  #replyBox .help { display: none; background: #fff7e6; border: 1px solid #ecd9b0; border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.6; } #replyBox .help.on { display: block; }
+  #replyBox .help a { color: #c94a3f; font-weight: 700; }
+  #replyBox small { color: #9a8a76; font-size: 11.5px; text-align: center; }
+  #replyBox button { all: unset; cursor: pointer; text-align: center; padding: 11px; border-radius: 999px; background: #c94a3f; color: #fff; font-weight: 700; font-size: 15px; }
   #rest { color: var(--dim); font-size: 12px; }
   #nickBox, #wishBox, #sayBox, #fbBox { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); width: min(300px, calc(100vw - 32px)); padding: 16px; border-radius: 20px; display: none; flex-direction: column; gap: 12px; font-size: 14px; text-align: center; }
   #nickBox.on, #wishBox.on, #sayBox.on, #fbBox.on { display: flex; }
@@ -121,8 +124,8 @@
 <div id="fwInfo" class="pill"></div>
 <div id="wishBox" class="pill"><b>🏮 소원 풍등</b><small>한 줄 소원을 적으면 모두에게 잠깐 보여요 (15자, 비워도 돼요)</small><div><input id="wishEd" maxlength="15" autocomplete="off" enterkeyhint="send" aria-label="소원" placeholder="예: 내일은 푹 자기"></div><div class="btns"><button id="wishCancel">닫기</button><button id="wishSend" class="on">띄우기</button></div></div>
 <div id="sayBox" class="pill"><b>💬 말하기 <small>운영자만</small></b><div><input id="sayEd" maxlength="80" autocomplete="off" enterkeyhint="send" aria-label="말할 내용"></div><div class="btns"><button id="sayCancel">닫기</button><button id="saySend" class="on">말하기</button></div></div>
-<div id="fbBox"><b>💌 한강 소원 우체통</b><small>"이런 게 있으면 좋겠어요", "이건 조금 불편했어요"<br>무엇이든 편하게 적어 주세요. 한강지기에게만 전해져요.</small><div><textarea id="fbEd" maxlength="300" rows="5" aria-label="편지" placeholder="한강지기에게…"></textarea></div><div class="btns"><button id="fbCancel">다음에</button><button id="fbSend" class="on">우체통에 넣기</button></div></div>
-<div id="inbox"><div class="head"><b>💌 우체통 편지</b><button id="inboxClose">닫기</button></div><small id="inboxNote"></small><div id="inboxList"></div></div>
+<div id="fbBox"><b>💌 나에게 하고 싶은 말</b><small>가까운 사람에게는 못 한 말, 여기엔 적어도 괜찮아요.<br>적은 글은 이 폰 밖으로 나가지 않고, 저장되지도 않아요.</small><div><textarea id="fbEd" maxlength="300" rows="5" aria-label="하고 싶은 말" placeholder="오늘 하고 싶었던 말…"></textarea></div><div class="btns"><button id="fbHear">💌 듣고 싶은 말 받기</button><button id="fbSelf">🍃 혼잣말로 강물에 흘려보내기</button><button id="fbCancel">다음에</button></div></div>
+<div id="replyBox" role="dialog" aria-label="답장"><b>💌 한강 우체통의 답장</b><p id="replyText"></p><div class="sign">— 한강에서</div><div class="help" id="replyHelp">혼자 견디지 않아도 돼요. 지금 바로 이야기를 들어 줄 사람이 있어요.<br>📞 <a href="tel:109">자살예방상담 109</a> (24시간, 무료)<br>💬 청소년이라면 <a href="tel:1388">1388</a></div><small>이 답장도 어디에도 남지 않아요</small><button id="replyOk">고마워요</button></div>
 <div id="nickBox" class="pill"><b>닉네임 바꾸기</b><div><input id="nickEd" maxlength="5" autocomplete="off" enterkeyhint="done" aria-label="새 닉네임"><button id="nickEdDice" aria-label="다른 이름">🎲</button></div><div class="btns"><button id="nickCancel">닫기</button><button id="nickSave" class="on">바꾸기</button></div></div>
 <div id="gate"><div class="box">
   <h1>밤 한강 돗자리</h1>
@@ -861,7 +864,7 @@ function seatAt(px, py) {
 }
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
-  if (!aiming && onMailbox(e.clientX, e.clientY)) return isAdmin ? openInbox() : openBox("fb");   // 소원 우체통
+  if (!aiming && onMailbox(e.clientX, e.clientY)) return openBox("fb");                // 나에게 하고 싶은 말
   if (!aiming && onMyChar(e.clientX, e.clientY)) return openNickBox();                  // 내 캐릭터(이름표)를 누르면 닉네임 바꾸기
   const other = !aiming && charAt(e.clientX, e.clientY);
   if (other) { closePanels(); $("emo").classList.add("open"); return toast(`😊 이모지를 끌어서 ${other.nick}님에게 놓아 보세요`, 2600); }   // 다른 사람을 누르면 마음 보내기 안내
@@ -1231,13 +1234,79 @@ setInterval(restTick, 20000);
 function openBox(k) { $(k + "Ed").value = ""; $(k + "Box").classList.add("on"); setTimeout(() => $(k + "Ed").focus(), 50); }
 const closeBox = k => $(k + "Box").classList.remove("on");
 for (const k of ["say", "fb"]) { $(k + "Cancel").onclick = () => closeBox(k); }
+
 $("saySend").onclick = () => { const v = $("sayEd").value.trim(); if (v && ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "say", text: v })); closeBox("say"); };
 $("sayEd").addEventListener("keydown", e => { if (e.key === "Enter") $("saySend").click(); });
-$("fbSend").onclick = () => {
-  const v = $("fbEd").value.trim(); if (!v) return toast("한 줄이라도 적어 주세요", 2000);
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "feedback", text: v }));
-  closeBox("fb");
+// 나에게 하고 싶은 말: 글은 서버로 보내지 않고 이 폰 안에서만 다룬다(저장 0). 혼잣말은 종이배로 강물에 흘려보내고, 듣고 싶은 말은 우체통이 바로 답장
+function mindText() {
+  const v = $("fbEd").value.replace(/\s+/g, " ").trim();
+  if (!v) { toast("한 줄이라도 적어 주세요", 2000); return null; }
+  if (mindBad(v)) { toast("욕설이나 야한 말은 쓸 수 없어요. 고운 말로 적어 주세요", 2800); return null; }
+  return v;
+}
+$("fbSelf").onclick = () => {
+  const v = mindText(); if (v == null) return;
+  const crisis = CRISIS.test(v); $("fbEd").value = ""; closeBox("fb"); floatBoat();
+  setTimeout(() => crisis ? showReply(pick(REPLIES.crisis), true) : toast("🍃 강물이 조용히 가져갔어요. 아무 데도 남지 않아요", 4200), 1400);
 };
+$("fbHear").onclick = () => {
+  const v = mindText(); if (v == null) return;
+  const r = mindReply(v); $("fbEd").value = ""; closeBox("fb"); flyLetter(); mailReplyAt = performance.now() / 1000 + .9;
+  setTimeout(() => showReply(r.text, r.crisis), 2300);
+};
+let typeTimer = 0;
+function showReply(text, crisis) {
+  const box = $("replyBox"), p = $("replyText"); clearInterval(typeTimer); p.textContent = "";
+  $("replyHelp").classList.toggle("on", !!crisis); box.classList.add("on"); requestAnimationFrame(() => box.classList.add("show"));
+  const chs = [...text]; let i = 0; typeTimer = setInterval(() => { p.textContent += chs[i++] || ""; if (i >= chs.length) clearInterval(typeTimer); }, 45);   // 한 글자씩 천천히
+}
+$("replyOk").onclick = () => { clearInterval(typeTimer); $("replyText").textContent = ""; const b = $("replyBox"); b.classList.remove("show"); setTimeout(() => b.classList.remove("on"), 450); };
+// 욕설·야한 말 거르기: 서버(server.js BAD)가 이 페이지에 목록을 끼워 준다. 마음 글은 길어서 낱말마다 본다(띄어 쓴 한 글자 낱말은 이어 붙여서)
+const MIND_BAD = /*HN_BAD*/[], MIND_BAD_CHO = /*HN_BAD_CHO*/[];
+const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+const toCho = w => [...w].map(ch => { const c = ch.charCodeAt(0) - 0xac00; return c >= 0 && c < 11172 ? CHO[Math.floor(c / 588)] : ch; }).join("");
+function mindBad(text) {
+  const words = []; let run = "";
+  for (const w of text.normalize("NFC").toLowerCase().split(/\s+/)) { if ([...w].length === 1) run += w; else { if (run) words.push(run); run = ""; words.push(w); } }
+  if (run) words.push(run);
+  const squash = x => x.replace(/[^a-z가-힣ㄱ-ㅎㅏ-ㅣ]/g, "").replace(/(.)\1+/g, "$1");
+  return words.some(w => {
+    const flats = [squash(w.replace(/[1!|]/g, "i").replace(/0/g, "o").replace(/3/g, "e").replace(/[4@]/g, "a").replace(/[5$]/g, "s").replace(/7/g, "t")), squash(w)];
+    const cho = /[ㄱ-ㅎ]/.test(w) ? toCho(flats[1]).replace(/[^ㄱ-ㅎ]/g, "") : "";
+    return flats.some(f => MIND_BAD.some(b => f.includes(b))) || (cho && MIND_BAD_CHO.some(b => cho.includes(b)));
+  });
+}
+// 답장: 글의 결(낱말)에 맞는 묶음에서 하나 + 맺음말. 위험한 말이 보이면 상담 번호를 함께
+const CRISIS = /죽고\s*싶|죽을\s*것\s*같|죽어\s*버리|자살|사라지고\s*싶|없어지고\s*싶|살기\s*싫|살고\s*싶지\s*않|그만\s*살|끝내고\s*싶|목숨|뛰어\s*내리|자해|손목/;
+const MOODS = [
+  ["self", /못나|쓸모|자존감|내가\s*싫|나\s*자신이|부족|실패|망했|망쳤|한심|자신\s*없|자신이\s*없|못\s*하겠|잘하는\s*게\s*없|나만\s*왜|비교/],
+  ["sad", /슬퍼|슬프|슬픔|울고|울었|울컥|눈물|우울|외로|외롭|혼자|공허|허전|쓸쓸/],
+  ["tired", /힘들|힘든|힘드|지쳤|지친|지쳐|피곤|버거|벅차|번아웃|쉬고\s*싶|무기력|버티/],
+  ["anxious", /불안|걱정|무서|두려|떨려|떨리|긴장|시험|면접|발표|결과|합격|미래|막막|어떡|어떻게\s*해/],
+  ["love", /헤어|이별|보고\s*싶|그리워|그립|짝사랑|좋아하는|좋아해|사랑|연락|싸웠|서운|미안/],
+  ["angry", /화나|화가|짜증|억울|열받|분해|분하|답답/],
+  ["work", /회사|직장|상사|야근|출근|퇴근|업무|공부|학교|취업|취준|알바|과제|돈/],
+  ["happy", /행복|좋았|좋아요|기뻐|기쁘|고마워|고맙|감사|설레|신나|좋은\s*일/],
+];
+const REPLIES = {
+  crisis: ["그런 마음이 들 만큼 정말 많이 힘들었군요.\n여기까지 꺼내 줘서 고마워요. 그 말을 적는 것도 큰 용기였을 거예요.\n오늘 밤은 혼자 버티지 말고, 아래 번호로 이야기해 줘요. 당신은 소중한 사람이에요."],
+  self: ["당신은 생각보다 훨씬 괜찮은 사람이에요.\n오늘의 실수가 당신 전부를 말해 주지 않아요.", "남들과 비교하지 않아도 돼요.\n꽃마다 피는 계절이 다르대요. 당신의 계절도 꼭 와요.", "넘어졌다는 건 걷고 있었다는 뜻이에요.\n넘어진 자리에서 잠깐 쉬어 가도 괜찮아요.", "스스로에게 조금만 다정해져요.\n친구가 같은 말을 했다면, 당신은 분명 따뜻하게 안아 줬을 거예요."],
+  sad: ["울고 싶을 땐 울어도 돼요.\n눈물은 마음이 스스로를 돌보는 방법이래요. 이 강물처럼 천천히 흘려보내요.", "혼자인 것 같은 밤에도, 지금 이 강변엔 당신 곁에 앉은 사람들이 있어요.\n말은 없어도 같은 밤을 보고 있어요.", "그 마음, 꺼내 줘서 고마워요.\n슬프다는 건 그만큼 소중한 게 있었다는 뜻이에요.", "괜찮은 척 안 해도 돼요.\n오늘은 그냥 조금 슬픈 날이어도 괜찮아요."],
+  tired: ["오늘 정말 많이 애썼어요.\n지친 건 약해서가 아니라, 그만큼 오래 버텨 왔다는 뜻이에요.", "힘들다고 말해 줘서 고마워요.\n다 잘하지 않아도 돼요. 오늘은 여기까지 온 것만으로 충분해요.", "쉬는 것도 해야 할 일이에요.\n오늘 밤만큼은 아무것도 증명하지 않아도 돼요.", "버티느라 고생 많았어요.\n내일 일은 내일의 당신이 할 거예요. 지금은 숨 한 번 크게 쉬어요."],
+  anxious: ["걱정이 많다는 건 그만큼 잘하고 싶다는 마음이에요.\n결과가 어떻든, 준비해 온 시간은 사라지지 않아요.", "아직 오지 않은 내일까지 지금 다 짊어지지 않아도 돼요.\n오늘 밤은 오늘 밤만큼만.", "막막할 땐 딱 한 걸음만 보면 돼요.\n그 한 걸음이 생각보다 멀리 데려다줄 거예요.", "떨린다는 건 진심이라는 거예요.\n당신은 생각보다 훨씬 잘 해낼 사람이에요."],
+  love: ["보고 싶은 마음은 그만큼 좋았던 시간이 있었다는 증거예요.\n그 시간은 당신 안에 그대로 남아 있어요.", "마음을 다 전하지 못해도 괜찮아요.\n여기 적은 것만으로도 마음은 한 번 숨을 쉬었어요.", "미안한 마음도, 서운한 마음도 당신이 사람을 소중히 여긴다는 뜻이에요.\n그 마음을 너무 탓하지 말아요.", "끝난 인연도 당신을 조금 더 다정한 사람으로 만들었어요.\n천천히 아파도 괜찮아요."],
+  angry: ["그럴 만했어요.\n화가 나는 건 당신이 소중히 여기는 게 다쳤기 때문이에요.", "억울한 마음, 여기다 다 내려놓고 가요.\n오늘은 한강이 당신 편만 들어 줄게요.", "답답한 마음 꾹 참느라 고생했어요.\n참은 만큼 당신은 이미 어른스러웠어요."],
+  work: ["오늘도 나가고, 버티고, 해냈어요.\n아무도 몰라줘도 그건 정말 대단한 일이에요.", "일이 당신의 전부는 아니에요.\n지금 여기 앉아 있는 당신도 충분히 소중해요.", "매일 조금씩 쌓은 시간은 어딘가로 꼭 이어져요.\n오늘 몫은 이걸로 충분해요.", "애쓴 만큼 돌아오지 않는 날도 있죠.\n그래도 당신의 노력은 분명 당신 안에 남아요."],
+  happy: ["좋은 일이 있었군요!\n그 기분이 오늘 밤 별처럼 오래 반짝이길 바라요.", "고마운 마음을 아는 사람은 결국 좋은 일을 더 많이 만나요.\n바로 당신 이야기예요.", "그 행복, 마음껏 누려요.\n당신은 그럴 자격이 충분해요."],
+  any: ["여기까지 와서 마음을 꺼내 준 것, 그것만으로도 용기 있는 일이에요.\n오늘 밤은 조금 가벼워졌으면 좋겠어요.", "누구에게도 못 한 말을 적었다는 건, 그만큼 오래 품고 있었다는 거겠죠.\n수고했어요, 정말.", "당신은 생각보다 잘 해내고 있어요.\n지금처럼만, 아니 조금 덜 애써도 괜찮아요.", "천천히 가도 결국 도착해요.\n오늘도 여기까지 온 당신을 응원해요.", "당신의 마음은 소중해요.\n그 마음을 들은 한강이 오늘 밤 당신 편이에요."],
+};
+const CLOSERS = ["오늘 밤은 푹 잘 수 있기를.", "내일은 오늘보다 조금 가볍기를.", "언제든 또 와요. 한강은 늘 여기 있어요.", "따뜻한 거 하나 마시고 자요.", ""];
+const pick = a => a[Math.random() * a.length | 0];
+function mindReply(v) {
+  if (CRISIS.test(v)) return { text: pick(REPLIES.crisis), crisis: true };
+  const m = MOODS.find(([, re]) => re.test(v)), c = pick(CLOSERS);
+  return { text: pick(REPLIES[m ? m[0] : "any"]) + (c ? "\n\n" + c : ""), crisis: false };
+}
 function openWish() { $("wishEd").value = ""; $("wishBox").classList.add("on"); setTimeout(() => $("wishEd").focus(), 50); }
 const closeWish = () => $("wishBox").classList.remove("on");
 let lastLanternSent = -1e9;
@@ -1249,29 +1318,25 @@ $("wishSend").onclick = () => {
 };
 $("wishEd").addEventListener("keydown", e => { if (e.key === "Enter") $("wishSend").click(); });
 
-// ---------- 한강 소원 우체통 ----------
-// 산책로 가운데 빨간 우체통. 누구나 눌러 편지(바라는 점)를 넣고, 운영자가 누르면 편지함이 열린다. 편지가 쌓이면 투입구에 꽂혀 보인다
-let letterCount = 0;
-const envelopes = [];
+// ---------- 한강 우체통: 나에게 하고 싶은 말 ----------
+// 산책로 가운데 빨간 우체통. 누르면 편지지가 열리고, 편지를 넣으면 우체통이 반짝이다 답장을 준다. 아무것도 저장하지 않는다
+const envelopes = [], paperBoats = [];
+let mailReplyAt = -1e9;
 function mailboxPos() { const s = Math.max(1.25, Math.min(1.9, U * 1.6)); return { x: W / 2, y: H * Y.path0 + 2 * U, s }; }
 function drawMailbox(t) {
   const { x, y, s } = mailboxPos(), w = 13 * s, h = 22 * s, top = y - 24 * s - h;
   cx.fillStyle = "rgba(0,0,0,.3)"; cx.beginPath(); cx.ellipse(x, y + 1 * s, 12 * s, 3 * s, 0, 0, TAU); cx.fill();
   cx.fillStyle = "#3a2e2a"; cx.fillRect(x - 1.6 * s, y - 24 * s, 3.2 * s, 24 * s);                                       // 기둥
-  const g = cx.createRadialGradient(x, top + h / 2, 0, x, top + h / 2, 34 * s); g.addColorStop(0, `rgba(255,190,140,${.22 + .05 * Math.sin(t * 1.5)})`); g.addColorStop(1, "rgba(255,190,140,0)");
+  const g = cx.createRadialGradient(x, top + h / 2, 0, x, top + h / 2, 34 * s); const glow = Math.max(0, 1 - Math.abs(t - mailReplyAt - .7) / .9);   // 편지를 받으면 잠깐 환하게
+  g.addColorStop(0, `rgba(255,190,140,${.22 + .05 * Math.sin(t * 1.5) + .45 * glow})`); g.addColorStop(1, "rgba(255,190,140,0)");
   cx.globalCompositeOperation = "lighter"; cx.fillStyle = g; cx.fillRect(x - 34 * s, top + h / 2 - 34 * s, 68 * s, 68 * s); cx.globalCompositeOperation = "source-over";
   cx.fillStyle = "#c63c34"; cx.beginPath(); cx.moveTo(x - w, top + h); cx.lineTo(x - w, top + 5 * s); cx.quadraticCurveTo(x - w, top - 3 * s, x, top - 3 * s); cx.quadraticCurveTo(x + w, top - 3 * s, x + w, top + 5 * s); cx.lineTo(x + w, top + h); cx.closePath(); cx.fill();
   cx.fillStyle = "rgba(255,255,255,.14)"; cx.fillRect(x - w + 1.5 * s, top + 3 * s, 2.2 * s, h - 5 * s);
   cx.fillStyle = "#2a1513"; cx.fillRect(x - 7 * s, top + 6 * s, 14 * s, 2.2 * s);                                          // 투입구
-  const n = Math.min(5, letterCount);
-  for (let i = 0; i < n; i++) {                                                                                          // 꽂힌 편지
-    const ex = x - 5 * s + i * 2.6 * s, tilt = (i % 2 ? .12 : -.1);
-    cx.save(); cx.translate(ex, top + 6.5 * s); cx.rotate(tilt); cx.fillStyle = i % 2 ? "#f6eedb" : "#fbe3e0"; cx.fillRect(-2 * s, -6 * s, 4.4 * s, 6.5 * s); cx.restore();
-  }
-  cx.fillStyle = "#f6eedb"; cx.font = `700 ${4.6 * s}px sans-serif`; cx.textAlign = "center"; cx.fillText("소원", x, top + 14 * s); cx.fillText("우체통", x, top + 19.5 * s);
+  cx.fillStyle = "#f6eedb"; cx.font = `700 ${4.6 * s}px sans-serif`; cx.textAlign = "center"; cx.fillText("마음", x, top + 14 * s); cx.fillText("우체통", x, top + 19.5 * s);
   const by = top - 9 * s + Math.sin(t * 2) * 1.5 * s;                                                                   // 떠 있는 이름표
   cx.font = `600 ${Math.max(11, 6.6 * s)}px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`;
-  const label = letterCount ? `💌 소원 우체통 · ${letterCount}` : "💌 소원 우체통";
+  const label = "💌 나에게 하고 싶은 말";
   const lw = cx.measureText(label).width + 12;
   cx.fillStyle = "rgba(14,20,40,.6)"; cx.beginPath(); cx.roundRect ? cx.roundRect(Math.min(W - lw - 4, x - lw / 2), by - 11 * s, lw, 14 * s, 7 * s) : cx.rect(x - lw / 2, by - 11 * s, lw, 14 * s); cx.fill();
   cx.fillStyle = "rgba(246,238,219,.95)"; cx.fillText(label, Math.min(W - lw / 2 - 4, x), by - 1.2 * s);
@@ -1287,31 +1352,25 @@ function drawMailbox(t) {
     if (u >= 1) envelopes.splice(i, 1);
   }
 }
+function floatBoat() { const c = chars.get(me); paperBoats.push({ x0: c ? c.x : W / 2, y0: c ? c.y - 40 * scaleAt(c.y) : H * .8, tx: (c ? c.x : W / 2) + (Math.random() - .5) * W * .2, age: 0, dir: Math.random() < .5 ? -1 : 1 }); }
+// 혼잣말 종이배: 내 자리에서 강물로 날아가 내려앉고, 천천히 떠내려가며 사라진다(내 화면에만)
+function drawPaperBoats(t, dt) {
+  const ry = H * (Y.P + (Y.B - Y.P) * .55);
+  for (let i = paperBoats.length - 1; i >= 0; i--) {
+    const b = paperBoats[i]; b.age += dt; const u = Math.min(1, b.age / 1.3), k = u * u * (3 - 2 * u);
+    const x = b.x0 + (b.tx - b.x0) * k + Math.max(0, b.age - 1.3) * 10 * U * b.dir, y = b.y0 + (ry - b.y0) * k - Math.sin(k * Math.PI) * 40 * U + (u >= 1 ? Math.sin(t * 2 + i) * .8 * U : 0);
+    const a = b.age < 4 ? 1 : Math.max(0, 1 - (b.age - 4) / 5), sc = (2.4 - .9 * k) * U;
+    if (a <= 0) { paperBoats.splice(i, 1); continue; }
+    cx.save(); cx.globalAlpha = a; cx.translate(x, y); cx.rotate(u < 1 ? Math.sin(b.age * 9) * .25 : Math.sin(t * 1.5 + i) * .05);
+    cx.fillStyle = "#f3ead6"; cx.beginPath(); cx.moveTo(-9 * sc, 0); cx.lineTo(9 * sc, 0); cx.lineTo(6 * sc, 4 * sc); cx.lineTo(-6 * sc, 4 * sc); cx.closePath(); cx.fill();   // 배
+    cx.fillStyle = "#fffaf0"; cx.beginPath(); cx.moveTo(-1 * sc, 0); cx.lineTo(0, -9 * sc); cx.lineTo(5 * sc, 0); cx.closePath(); cx.fill();                               // 돛
+    cx.fillStyle = "#e2d5b8"; cx.beginPath(); cx.moveTo(-1 * sc, 0); cx.lineTo(0, -9 * sc); cx.lineTo(-5 * sc, 0); cx.closePath(); cx.fill();
+    if (u >= 1) { cx.globalCompositeOperation = "lighter"; for (let k2 = 0; k2 < 3; k2++) streak(Math.sin(t * 2 + k2) * U, 5 * sc + k2 * 3 * U, (10 - k2 * 2.5) * sc, .16 - k2 * .04, "255,240,215"); }
+    cx.restore();
+  }
+}
 function flyLetter() { const c = chars.get(me); envelopes.push({ x0: c ? c.x : W / 2, y0: c ? c.y - 40 * scaleAt(c.y) : H * .8, age: 0 }); }
 function onMailbox(px, py) { const { x, y, s } = mailboxPos(); return Math.abs(px - x) < 22 * s && py > y - 62 * s && py < y + 6 * s; }
-// 운영자 편지함: 서버 목록 + 이 폰에 모아 둔 사본을 합쳐 보여 준다(서버가 재시작돼도 폰 사본은 남음)
-function loadLetters() { try { return JSON.parse(localStorage.getItem("hn-letters") || "[]"); } catch { return []; } }
-function cacheLetters(list) {
-  const all = loadLetters(), seen = new Set(all.map(f => f.id || f.at + f.text));
-  for (const f of list) { const k = f.id || f.at + f.text; if (!seen.has(k)) { seen.add(k); all.push(f); } }
-  all.sort((a, b) => a.at < b.at ? 1 : -1); try { localStorage.setItem("hn-letters", JSON.stringify(all.slice(0, 1000))); } catch {}
-  return all;
-}
-function renderInbox(note) {
-  const list = $("inboxList"), all = loadLetters(); list.textContent = "";
-  for (const f of all) {
-    const d = document.createElement("div"); d.className = "item"; const m = document.createElement("div"); m.className = "meta";
-    m.textContent = `${new Date(f.at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · ${f.nick} · ${f.room}번 방`;
-    d.append(m, document.createTextNode(f.text)); list.appendChild(d);
-  }
-  $("inboxNote").textContent = (note ? note + " · " : "") + (all.length ? `편지 ${all.length}통 (이 폰에도 보관돼요)` : "아직 편지가 없어요");
-}
-async function openInbox() {
-  $("inbox").classList.add("on"); renderInbox("불러오는 중");
-  const r = await fetch("/admin/feedback", { headers: { "x-admin-key": adminKey } }).catch(() => null);
-  if (r && r.ok) { const { items } = await r.json(); cacheLetters(items); renderInbox(); } else renderInbox("서버에서 못 불러와서 폰 사본만 보여요");
-}
-$("inboxClose").onclick = () => $("inbox").classList.remove("on");
 
 // ---------- 루프 ----------
 let last = performance.now();
@@ -1326,7 +1385,7 @@ function frame(now) {
   const mine = chars.get(me), picking = canPick();
   const glowBase = !picking ? 0 : mine.state === "sit" ? .2 : .6;
   seats.forEach((s, i) => drawMat(s, glowBase && !seatTaken(i) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
-  drawMailbox(t);
+  drawPaperBoats(t, dt); drawMailbox(t);
   for (const c of chars.values()) stepChar(c, dt);
   [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
   drawAim(t);
@@ -1355,7 +1414,6 @@ function connect() {
       if (mine && mine.nick !== myNick) { toast(`그 이름은 쓸 수 없어서 '${mine.nick}'(으)로 정했어요`, 3500); saveNick(mine.nick); }
       $("cnt").textContent = m.users.length;
       if (!emojis.length) { buildEmoji(m.emojis); buildActs(); }
-      letterCount = m.letters || 0;
       if (m.admin && !isAdmin) { isAdmin = true; buildAdmin(); toast("👑 운영자로 들어왔어요", 3000); }
       else if (adminKey && !m.admin && !isAdmin) { adminKey = ""; try { localStorage.removeItem("hn-admin"); } catch {} }   // 틀린 키는 버린다
       if (m.fountain != null) startFountain(m.fountain);
@@ -1376,10 +1434,6 @@ function connect() {
     else if (m.t === "heart") { hearts.push({ from: m.from, to: m.to, e: m.e, age: 0 }); if (m.to === me) { const f = chars.get(m.from); toast(`${m.e || "💗"} ${f ? f.nick : "누군가"}님이 마음을 보냈어요`, 2500); } }
     else if (m.t === "adminHere") adminOn = m.on;                                         // 알림 없이 오로라만
     else if (m.t === "say") { const c = chars.get(m.id); if (c) c.say = { text: m.text, at: performance.now() }; }
-    else if (m.t === "feedbackOk") { flyLetter(); setTimeout(() => toast("💌 편지가 우체통에 들어갔어요. 고마워요, 꼭 읽어 볼게요", 4000), 900); }
-    else if (m.t === "letters") letterCount = m.n;
-    else if (m.t === "letter") { cacheLetters([m.f]); if ($("inbox").classList.contains("on")) renderInbox(); else toast("💌 우체통에 새 편지가 왔어요", 2500); }
-    else if (m.t === "feedbackBad") toast(m.why === "bad" ? "고운 말로 다시 적어 주세요" : m.why === "wait" ? "편지는 1분에 한 통, 하루 다섯 통까지예요" : "한 줄이라도 적어 주세요", 2800);
     else if (m.t === "restart") toast("잠깐 새 단장 중이에요. 자리는 그대로 돌아와요", 0);
     else if (m.t === "leave") removeChar(m.id);
     else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
@@ -1439,11 +1493,10 @@ function buildActs() {
 // 운영자 버튼: 분수·유성우 바로 켜기 (서버가 운영자인지 다시 확인)
 function buildAdmin() {
   const bar = $("acts"), sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
-  for (const [id, icon, name] of [["say", "💬", "말하기"], ["fountain", "⛲", "분수"], ["meteor", "🌠", "유성우"], ["inbox", "💌", "편지함"]]) {
+  for (const [id, icon, name] of [["say", "💬", "말하기"], ["fountain", "⛲", "분수"], ["meteor", "🌠", "유성우"]] ) {
     const b = document.createElement("button"); b.className = "admin"; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", "운영자 " + name);
     b.onclick = () => {
       if (id === "say") return openBox("say");
-      if (id === "inbox") return openInbox();
       if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "admin", do: id }));
     };
     bar.appendChild(b);

@@ -45,33 +45,18 @@ function cleanNick(raw, admin, max = NICK_MAX) {
 }
 // 운영자: Render 환경 변수 ADMIN_KEY와 같은 키로 들어온 사람. 왕관 이름표, 황금 폭죽(1초 간격), 분수·유성우 켜기
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
-// 소원 우체통(바라는 점) 보관: 메모리 + 파일 + 서버 로그 한 줄. Render 무료는 재시작·배포·잠들 때 디스크가 지워지므로
-// 새 편지는 접속 중인 운영자 폰으로 바로 보내 폰에 사본을 쌓고(운영자가 볼 때마다 합침), 서버가 꺼질 때 남은 편지를 로그에 한 번 더 남긴다
-const FB_FILE = path.join(__dirname, "feedback.json");
-let feedback = []; try { feedback = JSON.parse(fs.readFileSync(FB_FILE, "utf8")); } catch {}
-const fbCount = new Map();   // IP 해시별 오늘 보낸 수 (rollDay 때 비움)
-function saveFeedback(f) {
-  f.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  feedback.push(f); if (feedback.length > 500) feedback.shift();
-  fs.writeFile(FB_FILE, JSON.stringify(feedback), () => {});
-  console.log("[편지] " + JSON.stringify(f));
-  for (const r of rooms) { broadcast(r, { t: "letters", n: feedback.length }); for (const o of r.users.values()) if (o.admin) send(o.ws, { t: "letter", f }); }
-}
 const isAdminKey = k => ADMIN_KEY.length >= 8 && typeof k === "string" && k.length === ADMIN_KEY.length && require("crypto").timingSafeEqual(Buffer.from(k), Buffer.from(ADMIN_KEY));
 const WISH_MAX = 15, LANTERN_GAP = 15000, HEART_GAP = 1500;   // 소원 풍등 글자 수·간격, 하트 간격
 const FW_KINDS = 5, FW_COLORS = 7;   // index.html FW_SHAPES·FW_HUES 길이와 같아야 함
 
-const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
-const adminPage = fs.readFileSync(path.join(__dirname, "admin.html"));
+// "나에게 하고 싶은 말"은 서버로 오지 않고 폰 안에서만 거른다. 그래서 욕설·음란어 목록을 페이지에 끼워 준다.
+// 마음 글에는 흔히 쓰는 말(사정·벗어나다·젖다·한남대교)과 위기 표현(죽고 싶다·자살 등, 상담 번호를 안내해야 함)은 막지 않는다
+const MIND_OK = ["죽어", "뒤져", "자살", "미친", "미쳤", "장애", "병자", "꺼져", "닥쳐", "사정", "벗어", "젖", "한남"];
+const MIND_BAD = BAD.filter(w => !MIND_OK.includes(w)), MIND_BAD_CHO = MIND_BAD.filter(w => /^[가-힣]{2,}$/.test(w)).map(toCho).concat(["ㅅㅂ", "ㅆㅂ", "ㅂㅅ", "ㅈㄴ", "ㅅㄲ", "ㅈㄹ", "ㅄ", "ㅈㅈ", "ㅂㅈ", "ㅅㅅ"]);
+const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8").replace("/*HN_BAD*/[]", JSON.stringify(MIND_BAD)).replace("/*HN_BAD_CHO*/[]", JSON.stringify(MIND_BAD_CHO));
 const ogImage = fs.readFileSync(path.join(__dirname, "og.jpg"));
 const server = http.createServer((req, res) => {
   if (req.url === "/health") { res.writeHead(200); return res.end("ok"); }
-  if (req.url === "/admin") { res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }); return res.end(adminPage); }
-  if (req.url === "/admin/feedback") {
-    if (!isAdminKey(req.headers["x-admin-key"])) { res.writeHead(403); return res.end("forbidden"); }
-    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-    return res.end(JSON.stringify({ items: feedback.slice().reverse() }));
-  }
   if (req.url === "/stats") {
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(JSON.stringify({ total: total(), rooms: rooms.map(r => r.users.size), today: summary(day), yesterday: prevDay && summary(prevDay) }, null, 1));
@@ -108,7 +93,7 @@ function summary(d) {
     avgMin: s.length ? +(s.reduce((a, b) => a + b, 0) / s.length / 60).toFixed(1) : 0, medianMin: +(mid / 60).toFixed(1),
     over5min: s.filter(x => x >= 300).length, peak: d.peak, sources: d.sources };
 }
-function rollDay() { if (day.date !== kstDate()) { fbCount.clear(); console.log("[stats] " + JSON.stringify(summary(day))); prevDay = day; day = newDay(); } }
+function rollDay() { if (day.date !== kstDate()) { console.log("[stats] " + JSON.stringify(summary(day))); prevDay = day; day = newDay(); } }
 setInterval(() => { rollDay(); if (new Date().getMinutes() === 0) console.log("[stats] " + JSON.stringify(summary(day))); }, 60000);
 const ipKey = ip => require("crypto").createHash("sha256").update(ip + day.date).digest("hex").slice(0, 12);  // IP는 저장하지 않고 하루짜리 해시만
 
@@ -152,7 +137,7 @@ wss.on("connection", (ws, req) => {
   u.nick = (u.admin ? cleanNick(asked, "free", 12) : cleanNick(asked)) || randNick();   // 운영자 닉네임은 12자까지, 거르지 않음
   room.users.set(u.id, u);
   ws.alive = true;
-  send(ws, { t: "init", you: u.id, admin: u.admin, letters: feedback.length, adminHere: adminHere(room) || u.admin, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
+  send(ws, { t: "init", you: u.id, admin: u.admin, adminHere: adminHere(room) || u.admin, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
   broadcast(room, { t: "join", user: pub(u) }, ws);
   if (u.admin) broadcast(room, { t: "adminHere", on: true, nick: u.nick }, ws);
   sendCounts();
@@ -194,15 +179,6 @@ wss.on("connection", (ws, req) => {
     } else if (m.t === "say" && u.admin && typeof m.text === "string") {
       // 말풍선은 운영자만 (제한 없음, 80자까지 화면에 맞게)
       const text = cleanNick(m.text, "free", 80); if (text) broadcast(room, { t: "say", id: u.id, text });
-    } else if (m.t === "feedback" && typeof m.text === "string") {
-      // 바라는 점: 누구나 300자까지, 1분에 하나·IP당 하루 5개, 욕설·음란어는 돌려보냄. 운영자만 /admin에서 본다
-      const now = Date.now(), k = ipKey(ip), used = fbCount.get(k) || 0;
-      if (!u.admin && (now - (u.lastFb || 0) < 60000 || used >= 5)) return send(ws, { t: "feedbackBad", why: "wait" });
-      const text = cleanNick(m.text, u.admin ? "free" : true, 300);
-      if (!text) return send(ws, { t: "feedbackBad", why: text === false ? "bad" : "empty" });
-      u.lastFb = now; fbCount.set(k, used + 1);
-      saveFeedback({ at: new Date().toISOString(), nick: u.nick, room: room.no, text });
-      send(ws, { t: "feedbackOk" });
     } else if (m.t === "nick") {
       const now = Date.now();
       if (!u.admin && now - u.lastNick < NICK_GAP) return send(ws, { t: "nickbad", why: "wait" });
@@ -248,7 +224,6 @@ setInterval(() => {
 
 // Render가 새 버전을 올리며 서버를 끌 때: 모두에게 알리고 닫는다. 페이지는 바로 다시 붙고 자리·행동·닉네임을 되찾는다
 process.on("SIGTERM", () => {
-  for (const f of feedback) console.log("[편지 보관] " + JSON.stringify(f));             // 디스크가 지워지기 전에 로그에 한 번 더
   for (const r of rooms) broadcast(r, { t: "restart" });
   setTimeout(() => { for (const c of wss.clients) c.close(1012, "restart"); setTimeout(() => process.exit(0), 300); }, 200);
 });
