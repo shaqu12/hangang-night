@@ -21,9 +21,23 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(JSON.stringify({ total: total(), rooms: rooms.map(r => r.users.size) }));
   }
+  if (req.url === "/ambience.mp3") return sendAudio(req, res);
   res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" });
   res.end(page);
 });
+
+// 배경 소리. 사파리는 오디오에 Range(206) 응답이 필요하다.
+const AUDIO = path.join(__dirname, "ambience.mp3");
+function sendAudio(req, res) {
+  let size; try { size = fs.statSync(AUDIO).size; } catch { res.writeHead(404); return res.end(); }
+  const head = { "content-type": "audio/mpeg", "accept-ranges": "bytes", "cache-control": "public, max-age=86400" };
+  const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || "");
+  if (!m) { res.writeHead(200, { ...head, "content-length": size }); return req.method === "HEAD" ? res.end() : fs.createReadStream(AUDIO).pipe(res); }
+  const start = m[1] ? +m[1] : size - +m[2], end = m[1] && m[2] ? Math.min(+m[2], size - 1) : size - 1;
+  if (start >= size || start > end) { res.writeHead(416, { "content-range": `bytes */${size}` }); return res.end(); }
+  res.writeHead(206, { ...head, "content-range": `bytes ${start}-${end}/${size}`, "content-length": end - start + 1 });
+  req.method === "HEAD" ? res.end() : fs.createReadStream(AUDIO, { start, end }).pipe(res);
+}
 
 const rooms = [];            // [{ no, users: Map<id, user> }]
 const ips = new Map();
