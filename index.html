@@ -265,6 +265,8 @@ function makeClouds() {
 }
 
 // ---------- 움직이는 풍경 ----------
+const FOUNTAIN_LEN = 25;   // server.js FOUNTAIN_LEN(ms)과 같게
+let fountainStart = -999;
 let train = null, nextTrain = 6, boat = null, nextBoat = 3;
 function hsl2rgb(h) { const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (.65 - .28 * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return `${f(0)},${f(8)},${f(4)}`; }
 function streak(x, y, w, a, col) { cx.fillStyle = `rgba(${col},${a})`; cx.fillRect(x - w / 2, y, w, 1.3 * U); }
@@ -360,7 +362,7 @@ function drawScene(t, dt) {
 // 다리와 달빛무지개분수: 상판 옆에서 물줄기가 무지개색으로 쏟아지고 물에 비친다 (50초 켜짐, 20초 쉼)
 function drawBridge(t, dt, dY, pY, bY) {
   const span = Math.min(80 * U, Math.max(56 * U, W / 6)), x0 = (W % span) / 2 - span, hit = pY + 3 * U;
-  const cyc = t % 70, fade = cyc < 50 ? Math.min(1, cyc / 3, (50 - cyc) / 3) : 0;
+  const age = t - fountainStart, fade = age >= 0 && age < FOUNTAIN_LEN ? Math.min(1, age / 2.5, (FOUNTAIN_LEN - age) / 3) : 0;   // 폭죽 쏘다 가끔(서버가 정함)만 켜진다
   // 교각
   cx.fillStyle = "#090d22";
   for (let x = x0; x < W + span; x += span) { cx.fillRect(x - 3.5 * U, dY, 7 * U, hit - dY); cx.fillRect(x - 5 * U, dY + 2 * U, 10 * U, 2 * U); }
@@ -370,10 +372,10 @@ function drawBridge(t, dt, dY, pY, bY) {
     cx.globalCompositeOperation = "lighter"; cx.lineCap = "round";
     for (let pass = 0; pass < 2; pass++) {                          // 0: 물줄기, 1: 물에 비친 물줄기
       for (let i = 0; i <= n; i++) {
-        const x = i * 5.5 * U, hue = (t * 25 + i * 6) % 360, sway = Math.sin(t * 1.7 + i * .45);
-        const len = (hit - dY - 3 * U) * (.92 + .08 * sway), out = (5 + 2 * sway) * U;
+        const x = i * 5.5 * U, hue = (300 + 75 * Math.sin(t * .5 + i * .07)) % 360, sway = Math.sin(t * 1.7 + i * .45);   // 반포대교처럼 빨강·분홍·보라·파랑
+        const len = (hit - dY - 3 * U) * (.92 + .08 * sway), out = (9 + 3 * sway) * U * (.5 + .5 * Math.min(1, age / 4));
         const sy = dY + 3 * U, ey = sy + len;
-        cx.strokeStyle = `hsla(${hue},95%,${pass ? 60 : 70}%,${(pass ? .12 : .36) * fade})`;
+        cx.strokeStyle = `hsla(${hue},95%,${pass ? 60 : 70}%,${(pass ? .16 : .5) * fade})`;
         cx.lineWidth = (pass ? 1.6 : 1.2) * U;
         cx.beginPath();
         if (!pass) { cx.moveTo(x, sy); cx.quadraticCurveTo(x + out, sy + len * .15, x + out * .8, ey); }
@@ -383,7 +385,7 @@ function drawBridge(t, dt, dY, pY, bY) {
     }
     // 물이 떨어지는 곳의 물보라와 색 번짐
     for (let k = 0; k < 8; k++) {
-      const x = k * W / 8, hue = (t * 25 + (x / (5.5 * U)) * 6) % 360;
+      const x = k * W / 8, hue = (300 + 75 * Math.sin(t * .5 + (x / (5.5 * U)) * .07)) % 360;
       const g = cx.createLinearGradient(0, hit - 10 * U, 0, hit + 26 * U);
       g.addColorStop(0, `hsla(${hue},90%,65%,0)`); g.addColorStop(.3, `hsla(${hue},90%,65%,${.2 * fade})`); g.addColorStop(1, `hsla(${hue},90%,65%,0)`);
       cx.fillStyle = g; cx.fillRect(x, hit - 10 * U, W / 8 + 1, 36 * U);
@@ -832,6 +834,16 @@ function thump(p, mine, shape) {
   const now = performance.now(); if (now - lastThump < 140) return; lastThump = now;
   fwBoom(S, actx.currentTime + .12, p, mine ? 1 : .6, shape === "willow" || shape === "peony");   // 소리가 빛보다 살짝 늦게
 }
+// 달빛무지개분수: 쇼 동안 강물 녹음을 따로 하나 더 은은하게 깔았다가 빼서 물 떨어지는 느낌을 더한다
+function startFountain(ago) {
+  fountainStart = performance.now() / 1000 - ago;
+  if (ago < 3) toast("🌈 달빛무지개분수가 켜졌어요!", 3500);
+  if (!actx || !SND.power || !started || !hasSound) return;
+  const el = new Audio("amb-river.mp3?v=2"), g = actx.createGain(), t0 = actx.currentTime, left = Math.max(1, FOUNTAIN_LEN - ago), v = .5;   // masterGain이 전체 크기를 곱해 준다
+  actx.createMediaElementSource(el).connect(g); g.connect(masterGain);
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + 2.5); g.gain.setValueAtTime(v, t0 + left - 3); g.gain.linearRampToValueAtTime(0, t0 + left);
+  el.currentTime = 40; el.play().catch(() => {}); setTimeout(() => el.pause(), left * 1000 + 200);
+}
 function drawFireworks(t, dt) {
   const base = H * Y.S, dY = H * Y.D, pY = H * Y.P, bY = H * Y.B;
   const water = (y, a) => { const ry = 2 * base - y; return ry > base && ry < bY && !(ry > dY && ry < pY) ? ry : null; };   // 물에 비친 자리(다리 뒤는 빼고)
@@ -957,6 +969,7 @@ function connect() {
       for (const u of m.users) addChar(u, u.id === me);
       $("cnt").textContent = m.users.length;
       if (!emojis.length) { buildEmoji(m.emojis); buildActs(); }
+      if (m.fountain != null) startFountain(m.fountain);
       syncActs();
     } else if (m.t === "join") addChar(m.user, true);
     else if (m.t === "seat") goSeat(m.id, m.seat);
@@ -964,6 +977,7 @@ function connect() {
     else if (m.t === "leave") removeChar(m.id);
     else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
     else if (m.t === "fw") launchFw(m);
+    else if (m.t === "fountain") startFountain(0);
     else if (m.t === "act") { const c = chars.get(m.id); if (c) c.act = m.a; }
     else if (m.t === "count") $("cnt").textContent = m.room;
     else if (m.t === "full") { toast(m.why === "ip" ? "이 기기에서 너무 많이 접속했어요" : "지금 모든 강변이 꽉 찼어요", 0); retry = 99; }

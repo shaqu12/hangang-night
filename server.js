@@ -16,6 +16,8 @@ const SIT_GAP = 600;         // 자리 옮기기 최소 간격(ms)
 const ACTS = ["sit", "lie", "star", "ramen", "chicken", "photo", "stretch", "doze"];   // 돗자리 위 행동
 const ACT_GAP = 400;
 const FW_GAP = 2500;         // 폭죽 최소 간격(ms). 연타로 하늘을 덮지 못하게
+const FOUNTAIN_P = +process.env.FOUNTAIN_P || .02;   // 폭죽 1발마다 다리 무지개분수가 켜질 확률
+const FOUNTAIN_LEN = 25000, FOUNTAIN_GAP = 5 * 60000;   // 쇼 25초, 방마다 끝나고 5분은 다시 안 켜짐
 const FW_KINDS = 5, FW_COLORS = 7;   // index.html FW_SHAPES·FW_HUES 길이와 같아야 함
 
 const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
@@ -69,7 +71,7 @@ const total = () => rooms.reduce((n, r) => n + r.users.size, 0);
 
 function pickRoom() {
   let r = rooms.find(r => r.users.size < CAP);
-  if (!r && rooms.length < MAX_ROOMS) { r = { no: rooms.length + 1, users: new Map() }; rooms.push(r); }
+  if (!r && rooms.length < MAX_ROOMS) { r = { no: rooms.length + 1, users: new Map(), fountainAt: 0 }; rooms.push(r); }
   return r;
 }
 const pub = u => ({ id: u.id, seat: u.seat, color: u.color, act: u.act });
@@ -97,7 +99,7 @@ wss.on("connection", (ws, req) => {
   const u = { id: nextId++, seat: null, color: COLORS[Math.floor(Math.random() * COLORS.length)], ws, lastEmo: 0, lastSit: 0, act: "sit", lastAct: 0, lastFw: 0 };
   room.users.set(u.id, u);
   ws.alive = true;
-  send(ws, { t: "init", you: u.id, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub) });
+  send(ws, { t: "init", you: u.id, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
   broadcast(room, { t: "join", user: pub(u) }, ws);
   sendCounts();
   day.peak = Math.max(day.peak, total());
@@ -122,6 +124,7 @@ wss.on("connection", (ws, req) => {
       if (now - u.lastFw < FW_GAP) return;
       u.lastFw = now;
       const r = n => Math.floor(Math.random() * n);
+      if (now - room.fountainAt > FOUNTAIN_LEN + FOUNTAIN_GAP && Math.random() < FOUNTAIN_P) { room.fountainAt = now + 1600; setTimeout(() => broadcast(room, { t: "fountain" }), 1600); }   // 폭죽이 터질 즈음 켠다
       broadcast(room, { t: "fw", id: u.id, p: Math.round(m.p * 100) / 100, k: r(FW_KINDS), h: r(FW_COLORS), h2: r(FW_COLORS), s: r(1e9) });
     } else if (m.t === "sit" && Number.isInteger(m.seat) && m.seat >= 0 && m.seat < CAP && m.seat !== u.seat) {
       const now = Date.now();
