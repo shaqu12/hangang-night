@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b1022">
+<title>밤 한강 돗자리</title>
+<style>
+  :root { --ink: #eef1f8; --dim: rgba(238,241,248,.62); --glass: rgba(14,20,40,.55); --line: rgba(255,255,255,.12); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #0b1022; color: var(--ink); overflow: hidden;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .pill { background: var(--glass); border: 1px solid var(--line); border-radius: 999px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  #top { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 16px; right: 16px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+  #top > * { pointer-events: auto; padding: 8px 14px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+  #top button { all: unset; cursor: pointer; font-size: 16px; line-height: 1; }
+  #emo { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); display: flex; gap: 2px; padding: 6px; opacity: 0; transition: opacity .6s; }
+  #emo.on { opacity: 1; }
+  #emo button { all: unset; cursor: pointer; font-size: 24px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; transition: transform .15s, background .15s; }
+  #emo button:active { transform: scale(.85); background: rgba(255,255,255,.12); }
+  #emo button.cool { opacity: .35; }
+  #toast { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 52px); left: 50%; transform: translateX(-50%); padding: 8px 16px; font-size: 13px; color: var(--dim); opacity: 0; transition: opacity .4s; white-space: nowrap; }
+  #toast.on { opacity: 1; }
+  #gate { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 60%, rgba(11,16,34,.35), rgba(11,16,34,.85)); transition: opacity .8s; }
+  #gate.off { opacity: 0; pointer-events: none; }
+  #gate .box { text-align: center; padding: 0 16px; }
+  #gate h1 { margin: 0 0 10px; font-size: 28px; font-weight: 700; letter-spacing: -.5px; }
+  #gate p { margin: 0 0 28px; color: var(--dim); font-size: 15px; line-height: 1.6; }
+  #gate button { all: unset; cursor: pointer; padding: 14px 30px; border-radius: 999px; background: #f3d9a4; color: #1b1a22; font-weight: 700; font-size: 16px; }
+  #gate small { display: block; margin-top: 18px; color: var(--dim); font-size: 12px; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="top">
+  <div class="pill" id="roomPill">🌉 <span id="roomName">한강</span></div>
+  <div class="pill"><span>👤 <b id="cnt">0</b></span><button id="snd" aria-label="소리">🔈</button></div>
+</div>
+<div id="toast" class="pill"></div>
+<div id="emo" class="pill"></div>
+<div id="gate"><div class="box">
+  <h1>밤 한강 돗자리</h1>
+  <p id="gateMsg">강바람 맞으며 잠깐 앉았다 가요.<br>여기 앉은 사람들은 모두 지금 접속한 사람이에요.</p>
+  <button id="go">돗자리 펴기</button>
+  <small>강물·바람 소리가 나와요. 말은 못 하고 이모지만 보낼 수 있어요.</small>
+</div></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("cv"), cx = cv.getContext("2d");
+const SEATS = 30, ROWS = 5, COLS = 6;          // server.js CAP과 같아야 함
+const ROOM_NAMES = ["여의도", "반포", "뚝섬", "망원", "이촌", "잠원", "광나루", "난지"];
+const MATS = [["#3d6fb6", "#e9eef5"], ["#c4473f", "#f1e9df"], ["#3f8a63", "#e8efe4"], ["#d9a33c", "#f4ecd9"]];
+const HAIR = ["#2a211d", "#3b2a22", "#1d1c22", "#5a3d2b", "#2b2a33"];
+
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// ---------- 화면 배치 ----------
+let W, H, U, DPR, bg, seats = [], refl = [];
+const Y = { horizon: .355, deck: .392, water: .41, bank: .565, path0: .578, path1: .612 };
+
+function layout() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  U = Math.min(W, H * .8) / 420;
+  seats = [];
+  const r = rng(7);
+  for (let row = 0; row < ROWS; row++) {
+    const y = H * (.652 + row * .058), s = (.62 + row * .13) * U * 1.15;
+    const spread = Math.min(W * (.66 + row * .07), (300 + row * 40) * U * 1.5);
+    for (let c = 0; c < COLS; c++) {
+      const x = W / 2 + (c - (COLS - 1) / 2) / (COLS - 1) * spread * .92 + (r() - .5) * 10 * s;
+      seats.push({ x, y: y + (r() - .5) * 6 * s, s, mat: MATS[Math.floor(r() * MATS.length)], tilt: (r() - .5) * .12 });
+    }
+  }
+  drawBg();
+  for (const c of chars.values()) if (c.state === "sit") { c.x = seats[c.seat].x; c.y = seats[c.seat].y; }
+}
+
+function drawBg() {
+  bg = document.createElement("canvas"); bg.width = W * DPR; bg.height = H * DPR;
+  const g = bg.getContext("2d"); g.scale(DPR, DPR);
+  const r = rng(11);
+  // 하늘
+  let gr = g.createLinearGradient(0, 0, 0, H * Y.water);
+  gr.addColorStop(0, "#070b1c"); gr.addColorStop(.7, "#16203f"); gr.addColorStop(1, "#2b2c4d");
+  g.fillStyle = gr; g.fillRect(0, 0, W, H * Y.water);
+  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(255,255,255,${.15 + r() * .45})`; g.fillRect(r() * W, r() * H * .26, r() < .1 ? 1.6 : 1, r() < .1 ? 1.6 : 1); }
+  // 달
+  const mx = W * .8, my = H * .1;
+  gr = g.createRadialGradient(mx, my, 0, mx, my, 70 * U); gr.addColorStop(0, "rgba(255,240,210,.35)"); gr.addColorStop(1, "rgba(255,240,210,0)");
+  g.fillStyle = gr; g.fillRect(mx - 80 * U, my - 80 * U, 160 * U, 160 * U);
+  g.fillStyle = "#f7ecd2"; g.beginPath(); g.arc(mx, my, 13 * U, 0, 7); g.fill();
+  // 남산과 타워
+  const base = H * Y.horizon;
+  g.fillStyle = "#0d1228"; g.beginPath(); g.moveTo(0, base); g.quadraticCurveTo(W * .2, base - 70 * U, W * .42, base); g.fill();
+  const tx = W * .2, ty = base - 58 * U;
+  g.fillStyle = "#11173a"; g.fillRect(tx - 2 * U, ty - 55 * U, 4 * U, 55 * U);
+  g.fillRect(tx - 6 * U, ty - 42 * U, 12 * U, 6 * U);
+  g.fillStyle = "#ff9d6b"; g.fillRect(tx - 6 * U, ty - 40 * U, 12 * U, 2 * U);
+  // 건너편 건물들
+  refl = [];
+  let x = -10;
+  while (x < W + 10) {
+    const w = (14 + r() * 26) * U, h = (12 + r() * r() * 70) * U * (x > W * .1 && x < W * .32 ? .5 : 1);
+    g.fillStyle = r() < .5 ? "#141a36" : "#181f3e"; g.fillRect(x, base - h, w, h + 2);
+    for (let wy = base - h + 4 * U; wy < base - 3 * U; wy += 5 * U)
+      for (let wx = x + 3 * U; wx < x + w - 3 * U; wx += 4.5 * U)
+        if (r() < .3) { g.fillStyle = r() < .7 ? "rgba(255,214,150,.75)" : "rgba(200,225,255,.7)"; g.fillRect(wx, wy, 1.8 * U, 2.2 * U); }
+    if (r() < .35) refl.push({ x: x + w / 2, c: [255, 214, 150], a: .25 });
+    x += w + r() * 4 * U;
+  }
+  // 강
+  gr = g.createLinearGradient(0, H * Y.horizon, 0, H * Y.bank);
+  gr.addColorStop(0, "#1a2142"); gr.addColorStop(1, "#0b1330");
+  g.fillStyle = gr; g.fillRect(0, H * Y.horizon, W, H * (Y.bank - Y.horizon));
+  // 다리: 상판, 교각
+  const dy = H * Y.deck;
+  g.fillStyle = "#0a0f24";
+  for (let px = W * .04; px < W; px += 62 * U) { g.fillRect(px, dy, 5 * U, H * (Y.water - Y.deck) + 6 * U); }
+  g.fillRect(0, dy - 4 * U, W, 6 * U);
+  for (let px = 0; px < W; px += 12 * U) refl.push({ x: px, c: [255, 225, 170], a: .12, bridge: true });
+  // 이쪽 강둑: 잔디, 산책로
+  gr = g.createLinearGradient(0, H * Y.bank, 0, H);
+  gr.addColorStop(0, "#14231f"); gr.addColorStop(1, "#0c1612");
+  g.fillStyle = gr; g.fillRect(0, H * Y.bank, W, H * (1 - Y.bank));
+  g.fillStyle = "#26292f"; g.fillRect(0, H * Y.path0, W, H * (Y.path1 - Y.path0));
+  g.fillStyle = "rgba(255,255,255,.06)"; g.fillRect(0, H * (Y.path0 + Y.path1) / 2, W, 1);
+  // 가로등과 불빛 웅덩이
+  for (let lx = W * .12; lx < W; lx += Math.max(120 * U, W / 3.2)) {
+    gr = g.createRadialGradient(lx, H * Y.path1, 0, lx, H * Y.path1, 110 * U);
+    gr.addColorStop(0, "rgba(255,200,130,.22)"); gr.addColorStop(1, "rgba(255,200,130,0)");
+    g.fillStyle = gr; g.beginPath(); g.ellipse(lx, H * Y.path1, 130 * U, 50 * U, 0, 0, 7); g.fill();
+    g.fillStyle = "#2c2f37"; g.fillRect(lx - 1.2 * U, H * Y.path0 - 46 * U, 2.4 * U, 46 * U);
+    g.fillStyle = "#ffe2b0"; g.beginPath(); g.arc(lx, H * Y.path0 - 47 * U, 3.4 * U, 0, 7); g.fill();
+    gr = g.createRadialGradient(lx, H * Y.path0 - 47 * U, 0, lx, H * Y.path0 - 47 * U, 26 * U);
+    gr.addColorStop(0, "rgba(255,220,160,.35)"); gr.addColorStop(1, "rgba(255,220,160,0)");
+    g.fillStyle = gr; g.fillRect(lx - 30 * U, H * Y.path0 - 77 * U, 60 * U, 60 * U);
+  }
+  // 풀 몇 포기
+  g.strokeStyle = "rgba(90,130,100,.25)"; g.lineWidth = 1;
+  for (let i = 0; i < 160; i++) { const gx = r() * W, gy = H * (Y.path1 + .01) + r() * H * .4, gh = (3 + r() * 5) * U; g.beginPath(); g.moveTo(gx, gy); g.lineTo(gx + (r() - .5) * 3, gy - gh); g.stroke(); }
+}
+
+// ---------- 움직이는 풍경 ----------
+let train = null, nextTrain = 6, boat = null, nextBoat = 20;
+function drawScene(t, dt) {
+  cx.drawImage(bg, 0, 0, W, H);
+  const dy = H * Y.deck, wt = H * Y.water, wb = H * Y.bank;
+  // 다리 조명: 천천히 색이 바뀐다
+  const hue = (t * 6) % 360;
+  for (let px = 6 * U, i = 0; px < W; px += 12 * U, i++) {
+    const a = .55 + .35 * Math.sin(t * 1.3 + i * .5);
+    cx.fillStyle = `hsla(${(hue + i * 4) % 360},70%,72%,${a})`; cx.fillRect(px, dy - 5 * U, 2.4 * U, 2.4 * U);
+  }
+  // 지하철
+  nextTrain -= dt;
+  if (!train && nextTrain <= 0) train = { x: Math.random() < .5 ? -1 : 1, p: 0 };
+  if (train) {
+    const len = 150 * U, sp = 90 * U, dir = train.x;
+    train.p += dt * sp;
+    const head = dir > 0 ? -len + train.p : W + len - train.p;
+    cx.fillStyle = "#1b2140"; cx.fillRect(Math.min(head, head - dir * len), dy - 12 * U, len, 7 * U);
+    for (let k = 0; k < 6; k++) {
+      const car = head - dir * (k * len / 6);
+      for (let wnd = 0; wnd < 3; wnd++) { cx.fillStyle = "rgba(220,240,255,.85)"; cx.fillRect(car - dir * (4 + wnd * 7) * U, dy - 10.5 * U, 4 * U, 3 * U); }
+    }
+    if (train.p > W + len * 2) { train = null; nextTrain = 25 + Math.random() * 30; }
+  }
+  // 물 위 반짝임
+  for (const s of refl) {
+    for (let k = 0; k < (s.bridge ? 5 : 3); k++) {
+      const yy = wt + 3 * U + k * 6 * U + (s.bridge ? 0 : -(wt - H * Y.horizon) * .6);
+      if (yy > wb) break;
+      const w = (2 + 3 * Math.abs(Math.sin(t * 1.7 + s.x * .05 + k))) * U;
+      const a = s.a * (.4 + .6 * Math.abs(Math.sin(t * 2.1 + s.x * .13 + k * 1.7))) * (1 - k * .15);
+      cx.fillStyle = `rgba(${s.c[0]},${s.c[1]},${s.c[2]},${a})`; cx.fillRect(s.x - w / 2 + Math.sin(t + k) * 2 * U, yy, w, 1.4 * U);
+    }
+  }
+  // 물결 줄
+  cx.strokeStyle = "rgba(170,190,255,.06)"; cx.lineWidth = 1;
+  for (let k = 0; k < 7; k++) {
+    const yy = wt + (k + 1) * (wb - wt) / 8; cx.beginPath();
+    for (let x = 0; x <= W; x += 16) cx.lineTo(x, yy + Math.sin(x * .03 + t * (.6 + k * .1) + k) * 1.5);
+    cx.stroke();
+  }
+  // 유람선
+  nextBoat -= dt;
+  if (!boat && nextBoat <= 0) boat = { dir: Math.random() < .5 ? 1 : -1, p: 0 };
+  if (boat) {
+    boat.p += dt * 14 * U;
+    const by = H * .49, bx = boat.dir > 0 ? -80 * U + boat.p : W + 80 * U - boat.p;
+    cx.fillStyle = "#1a2040"; cx.beginPath(); cx.moveTo(bx - 36 * U, by - 6 * U); cx.lineTo(bx + 36 * U, by - 6 * U); cx.lineTo(bx + 30 * U, by); cx.lineTo(bx - 30 * U, by); cx.fill();
+    cx.fillRect(bx - 22 * U, by - 13 * U, 44 * U, 7 * U);
+    for (let k = -3; k <= 3; k++) { cx.fillStyle = "rgba(255,220,150,.9)"; cx.fillRect(bx + k * 6 * U - 1.5 * U, by - 11 * U, 3 * U, 3 * U); }
+    for (let k = 0; k < 4; k++) { cx.fillStyle = `rgba(255,220,150,${.18 - k * .04})`; cx.fillRect(bx - (20 - k * 3) * U + Math.sin(t * 3 + k) * 2, by + (2 + k * 4) * U, (40 - k * 6) * U, 1.5 * U); }
+    if (boat.p > W + 160 * U) { boat = null; nextBoat = 50 + Math.random() * 50; }
+  }
+  // 빈 돗자리
+  for (const s of seats) drawMat(s);
+}
+
+function drawMat(s) {
+  const w = 46 * s.s, h = 16 * s.s;
+  cx.save(); cx.translate(s.x, s.y + 2 * s.s); cx.rotate(s.tilt);
+  cx.beginPath(); cx.moveTo(-w * .42, -h / 2); cx.lineTo(w * .42, -h / 2); cx.lineTo(w / 2, h / 2); cx.lineTo(-w / 2, h / 2); cx.closePath();
+  cx.fillStyle = s.mat[1]; cx.globalAlpha = .55; cx.fill(); cx.clip();
+  cx.fillStyle = s.mat[0];
+  for (let i = -6; i < 6; i += 2) cx.fillRect(i * w / 12, -h, w / 12, h * 2);
+  for (let j = -2; j < 2; j += 2) { cx.globalAlpha = .3; cx.fillRect(-w, j * h / 4, w * 2, h / 4); }
+  cx.restore(); cx.globalAlpha = 1;
+}
+
+// ---------- 캐릭터 ----------
+const chars = new Map();     // id → { id, color, hair, seat, x, y, state, path, emo: [] }
+let me = null;
+const pathY = () => H * (Y.path0 + Y.path1) / 2;
+
+function addChar(u, walk) {
+  const s = seats[u.seat]; if (!s) return;
+  const c = { id: u.id, color: u.color, hair: HAIR[u.id % HAIR.length], seat: u.seat, emo: [], phase: Math.random() * 6, born: performance.now() };
+  if (walk) {
+    const fromLeft = s.x < W / 2 ? Math.random() < .75 : Math.random() < .25;
+    c.x = fromLeft ? -20 * U : W + 20 * U; c.y = pathY();
+    c.path = [{ x: s.x + (fromLeft ? -1 : 1) * 4 * U, y: pathY() }, { x: s.x, y: s.y }];
+    c.state = "walk";
+  } else { c.x = s.x; c.y = s.y; c.state = "sit"; }
+  chars.set(u.id, c);
+}
+function removeChar(id) {
+  const c = chars.get(id); if (!c) return;
+  const toLeft = c.x < W / 2;
+  c.path = [{ x: c.x, y: pathY() }, { x: toLeft ? -30 * U : W + 30 * U, y: pathY() }];
+  c.state = "leave";
+}
+
+function stepChar(c, dt) {
+  if (c.state === "sit" || !c.path.length) return;
+  const sp = 46 * U * (c.y > H * .7 ? 1.2 : 1);
+  const p = c.path[0], dx = p.x - c.x, dy = p.y - c.y, d = Math.hypot(dx, dy);
+  const step = sp * dt;
+  if (d <= step) { c.x = p.x; c.y = p.y; c.path.shift(); if (!c.path.length) { if (c.state === "walk") c.state = "sit"; else chars.delete(c.id); } }
+  else { c.x += dx / d * step; c.y += dy / d * step; c.face = dx; }
+}
+
+// 뒤에서 본 2등신 캐릭터
+function drawChar(c, t) {
+  const s = scaleAt(c.y), x = c.x;
+  const walking = c.state !== "sit";
+  const bob = walking ? Math.abs(Math.sin(t * 9 + c.phase)) * 2.2 * s : Math.sin(t * 1.2 + c.phase) * .6 * s;
+  const y = c.y - bob;
+  // 그림자
+  cx.fillStyle = "rgba(0,0,0,.28)"; cx.beginPath(); cx.ellipse(x, c.y + 3 * s, 13 * s, 4 * s, 0, 0, 7); cx.fill();
+  if (walking) {
+    const sw = Math.sin(t * 9 + c.phase) * 4 * s;
+    cx.strokeStyle = "#2b2f3d"; cx.lineWidth = 3.4 * s; cx.lineCap = "round";
+    cx.beginPath(); cx.moveTo(x - 3.5 * s, y - 8 * s); cx.lineTo(x - 3.5 * s + sw * .4, c.y + 1 * s); cx.moveTo(x + 3.5 * s, y - 8 * s); cx.lineTo(x + 3.5 * s - sw * .4, c.y + 1 * s); cx.stroke();
+  }
+  const bodyTop = y - (walking ? 26 : 18) * s, bodyBot = y - (walking ? 7 : 0) * s;
+  // 몸(후드티)
+  cx.fillStyle = c.color;
+  cx.beginPath();
+  cx.moveTo(x - 9 * s, bodyTop + 3 * s); cx.quadraticCurveTo(x, bodyTop - 2 * s, x + 9 * s, bodyTop + 3 * s);
+  cx.lineTo(x + (walking ? 10 : 13) * s, bodyBot); cx.quadraticCurveTo(x, bodyBot + 3 * s, x - (walking ? 10 : 13) * s, bodyBot); cx.closePath(); cx.fill();
+  cx.fillStyle = "rgba(0,0,0,.12)"; cx.beginPath(); cx.ellipse(x, bodyTop + 4 * s, 7 * s, 3 * s, 0, 0, 7); cx.fill(); // 후드
+  // 머리
+  const hy = bodyTop - 9 * s;
+  cx.fillStyle = "#e9c4a3"; cx.beginPath(); cx.arc(x - 11.5 * s, hy + 2 * s, 2.4 * s, 0, 7); cx.arc(x + 11.5 * s, hy + 2 * s, 2.4 * s, 0, 7); cx.fill();
+  cx.fillStyle = c.hair; cx.beginPath(); cx.arc(x, hy, 12 * s, 0, 7); cx.fill();
+  cx.fillStyle = "rgba(255,255,255,.07)"; cx.beginPath(); cx.arc(x - 4 * s, hy - 5 * s, 4 * s, 0, 7); cx.fill();
+  // 내 캐릭터 표시
+  if (c.id === me) {
+    const age = (performance.now() - c.born) / 1000;
+    const a = age < 8 ? 1 : .45;
+    cx.fillStyle = `rgba(243,217,164,${a})`;
+    cx.beginPath(); const ay = hy - 19 * s + Math.sin(t * 3) * 1.5 * s; cx.moveTo(x - 4 * s, ay - 5 * s); cx.lineTo(x + 4 * s, ay - 5 * s); cx.lineTo(x, ay); cx.fill();
+    if (age < 8) { cx.font = `600 ${Math.max(11, 10 * s)}px sans-serif`; cx.textAlign = "center"; cx.fillText("나", x, ay - 8 * s); }
+  }
+  // 이모지
+  const now = performance.now();
+  c.emo = c.emo.filter(e => now - e.at < 2600);
+  for (const e of c.emo) {
+    const k = (now - e.at) / 2600;
+    cx.globalAlpha = k < .1 ? k * 10 : 1 - Math.max(0, k - .6) / .4;
+    cx.font = `${Math.max(18, 20 * s)}px serif`; cx.textAlign = "center";
+    cx.fillText(e.e, x + Math.sin(k * 6 + e.at) * 3 * s, hy - 18 * s - k * 34 * s);
+    cx.globalAlpha = 1;
+  }
+}
+function scaleAt(y) {           // 깊이에 따른 크기 (돗자리 줄 사이를 보간)
+  const y0 = seats[0].y, y1 = seats[SEATS - 1].y, s0 = seats[0].s, s1 = seats[SEATS - 1].s;
+  const k = (y - y0) / (y1 - y0);
+  return Math.max(s0 * .8, s0 + (s1 - s0) * k);
+}
+
+// ---------- 루프 ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  const t = now / 1000;
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  drawScene(t, dt);
+  for (const c of chars.values()) stepChar(c, dt);
+  [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
+  requestAnimationFrame(frame);
+}
+
+// ---------- 실시간 연결 ----------
+let ws, retry = 0, pingT, emojis = [];
+function toast(msg, ms) { const el = $("toast"); el.textContent = msg; el.classList.add("on"); clearTimeout(toast.t); if (ms) toast.t = setTimeout(() => el.classList.remove("on"), ms); }
+function roomLabel(no) { return ROOM_NAMES[(no - 1) % ROOM_NAMES.length] + " " + String(Math.ceil(no / ROOM_NAMES.length)).padStart(2, "0"); }
+
+function connect() {
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  ws.onopen = () => { retry = 0; $("toast").classList.remove("on"); clearInterval(pingT); pingT = setInterval(() => ws.readyState === 1 && ws.send('{"t":"p"}'), 25000); };
+  ws.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.t === "init") {
+      chars.clear(); me = m.you;
+      $("roomName").textContent = roomLabel(m.room);
+      for (const u of m.users) addChar(u, u.id === me);
+      $("cnt").textContent = m.users.length;
+      if (!emojis.length) buildEmoji(m.emojis);
+    } else if (m.t === "join") addChar(m.user, true);
+    else if (m.t === "leave") removeChar(m.id);
+    else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) c.emo.push({ e: m.e, at: performance.now() }); }
+    else if (m.t === "count") $("cnt").textContent = m.room;
+    else if (m.t === "full") { toast(m.why === "ip" ? "이 기기에서 너무 많이 접속했어요" : "지금 모든 강변이 꽉 찼어요", 0); retry = 99; }
+  };
+  ws.onclose = () => {
+    clearInterval(pingT);
+    if (retry >= 99) return;
+    for (const c of chars.values()) if (c.id !== me) chars.delete(c.id);
+    toast("연결이 끊겨서 다시 연결하고 있어요", 0);
+    setTimeout(connect, Math.min(15000, 1000 * 2 ** retry++));
+  };
+}
+
+function buildEmoji(list) {
+  emojis = list; const bar = $("emo");
+  for (const e of list) {
+    const b = document.createElement("button"); b.textContent = e; b.setAttribute("aria-label", e);
+    b.onclick = () => {
+      if (bar.dataset.cool) return;
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "emo", e }));
+      const c = chars.get(me); if (c) c.emo.push({ e, at: performance.now() });
+      bar.dataset.cool = 1; bar.querySelectorAll("button").forEach(x => x.classList.add("cool"));
+      setTimeout(() => { delete bar.dataset.cool; bar.querySelectorAll("button").forEach(x => x.classList.remove("cool")); }, 1300);
+    };
+    bar.appendChild(b);
+  }
+  bar.classList.add("on");
+}
+
+// ---------- 소리: 강물 찰랑임 + 바람 + 먼 도시 웅웅 (32초 고리를 직접 계산) ----------
+const audio = new Audio(); audio.loop = true; let soundOn = false;
+function makeSound() {
+  const SR = 22050, LEN = 32, FADE = 4, N = (LEN + FADE) * SR;
+  const L = new Float32Array(N), R = new Float32Array(N), r = rng(3);
+  const ch = [L, R];
+  for (let c = 0; c < 2; c++) {
+    const out = ch[c];
+    // 찰랑임: 0.4~1.3초마다 물결 하나, 낮은 잡음 + 살짝 높은 물튀김
+    const env = new Float32Array(N);
+    for (let tt = 0; tt < LEN + FADE;) {
+      const at = Math.floor(tt * SR), amp = .35 + r() * .65, att = (.12 + r() * .2) * SR, dec = (.5 + r() * .9) * SR;
+      for (let i = 0; i < att + dec * 4 && at + i < N; i++) env[at + i] += amp * (i < att ? i / att : Math.exp(-(i - att) / dec));
+      tt += .4 + r() * .9;
+    }
+    let lp1 = 0, lp2 = 0, hp = 0, hpPrev = 0, b0 = 0, b1 = 0, b2 = 0, wl = 0, hum = 0;
+    for (let i = 0; i < N; i++) {
+      const n = r() * 2 - 1;
+      lp1 += (n - lp1) * .09; lp2 += (lp1 - lp2) * .09;            // ~350Hz
+      hp = .96 * (hp + n - hpPrev); hpPrev = n;                      // 물튀김용 고역
+      const lap = lp2 * 2.6 * env[i] + hp * .05 * env[i] * env[i];
+      b0 = .99886 * b0 + n * .0555179; b1 = .99332 * b1 + n * .0750759; b2 = .969 * b2 + n * .153852; // 분홍 잡음
+      const pink = (b0 + b1 + b2 + n * .5362) * .2;
+      wl += (pink - wl) * .12;
+      const ts = i / SR;
+      const gust = .25 + .2 * Math.sin(ts * 2 * Math.PI / 16 + c) + .1 * Math.sin(ts * 2 * Math.PI / 6.4 + c * 2);
+      hum += (n - hum) * .02;
+      out[i] = lap * .5 + wl * gust * .9 + hum * .5;
+    }
+  }
+  // 이음매 없는 반복: 끝 4초를 앞 4초에 겹친다
+  const M = LEN * SR, F = FADE * SR;
+  let peak = 0;
+  for (const out of ch) { for (let i = 0; i < F; i++) { const k = i / F; out[i] = out[i] * k + out[M + i] * (1 - k); } for (let i = 0; i < M; i++) peak = Math.max(peak, Math.abs(out[i])); }
+  const buf = new DataView(new ArrayBuffer(44 + M * 4)), w = (o, s) => [...s].forEach((ch, i) => buf.setUint8(o + i, ch.charCodeAt(0)));
+  w(0, "RIFF"); buf.setUint32(4, 36 + M * 4, true); w(8, "WAVEfmt "); buf.setUint32(16, 16, true); buf.setUint16(20, 1, true); buf.setUint16(22, 2, true);
+  buf.setUint32(24, SR, true); buf.setUint32(28, SR * 4, true); buf.setUint16(32, 4, true); buf.setUint16(34, 16, true); w(36, "data"); buf.setUint32(40, M * 4, true);
+  const g = .7 / peak;
+  for (let i = 0; i < M; i++) { buf.setInt16(44 + i * 4, L[i] * g * 32767, true); buf.setInt16(46 + i * 4, R[i] * g * 32767, true); }
+  audio.src = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+}
+function setSound(on) { soundOn = on; $("snd").textContent = on ? "🔊" : "🔈"; on ? audio.play().catch(() => {}) : audio.pause(); }
+$("snd").onclick = () => { if (!audio.src) makeSound(); setSound(!soundOn); };
+
+$("go").onclick = () => {
+  $("gate").classList.add("off");
+  makeSound(); setSound(true);
+  if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: "밤 한강 돗자리", artist: "강물 소리" });
+  connect();
+};
+fetch("/stats").then(r => r.json()).then(s => { if (s.total) $("gateMsg").innerHTML = `지금 <b>${s.total}명</b>이 돗자리에 앉아 있어요.<br>여기 앉은 사람들은 모두 지금 접속한 사람이에요.`; }).catch(() => {});
+
+addEventListener("resize", layout);
+layout();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

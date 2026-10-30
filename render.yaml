@@ -1,0 +1,9 @@
+# Render 웹 서비스(무료). 저장소 맨 위에 server.js, index.html, package.json이 있다고 가정한다.
+services:
+  - type: web
+    name: hangang-night
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
