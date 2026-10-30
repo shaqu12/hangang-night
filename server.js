@@ -35,6 +35,7 @@ function cleanNick(raw, admin, max = NICK_MAX) {
   if (typeof raw !== "string") return null;
   const n = [...raw.normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\u3164\uffa0]/g, "").replace(/\s+/g, " ").trim()].slice(0, max).join("").trim();
   if (!n) return null;
+  if (admin === "free") return n;                                                       // 운영자 글은 거르지 않는다
   const low = n.toLowerCase(), squash = x => x.replace(/[^a-z가-힣ㄱ-ㅎㅏ-ㅣ]/g, "").replace(/(.)\1+/g, "$1");
   const flats = [squash(low.replace(/[1!|]/g, "i").replace(/0/g, "o").replace(/3/g, "e").replace(/[4@]/g, "a").replace(/[5$]/g, "s").replace(/7/g, "t")), squash(low)];   // 숫자를 글자로 / 숫자를 빼고
   const hasJamo = /[ㄱ-ㅎ]/.test(n), cho = hasJamo ? toCho(flats[1]).replace(/[^ㄱ-ㅎ]/g, "") : "";   // 자음을 섞어 친 경우만 초성으로도 비교
@@ -44,14 +45,31 @@ function cleanNick(raw, admin, max = NICK_MAX) {
 }
 // 운영자: Render 환경 변수 ADMIN_KEY와 같은 키로 들어온 사람. 왕관 이름표, 황금 폭죽(1초 간격), 분수·유성우 켜기
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
+// 바라는 점 보관: 메모리 + 파일(Render 무료는 재시작·배포·잠들 때 디스크가 지워짐) + 로그 한 줄 + (있으면) 디스코드 웹훅으로 영구 보관
+const FB_FILE = path.join(__dirname, "feedback.json"), FEEDBACK_WEBHOOK = process.env.FEEDBACK_WEBHOOK || "";
+let feedback = []; try { feedback = JSON.parse(fs.readFileSync(FB_FILE, "utf8")); } catch {}
+const fbCount = new Map();   // IP 해시별 오늘 보낸 수 (rollDay 때 비움)
+function saveFeedback(f) {
+  feedback.push(f); if (feedback.length > 500) feedback.shift();
+  fs.writeFile(FB_FILE, JSON.stringify(feedback), () => {});
+  console.log("[바라는점] " + JSON.stringify(f));
+  if (FEEDBACK_WEBHOOK) fetch(FEEDBACK_WEBHOOK, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: `📮 ${f.nick} (${f.room}번 방): ${f.text}`.slice(0, 1900), allowed_mentions: { parse: [] } }) }).catch(() => {});
+}
 const isAdminKey = k => ADMIN_KEY.length >= 8 && typeof k === "string" && k.length === ADMIN_KEY.length && require("crypto").timingSafeEqual(Buffer.from(k), Buffer.from(ADMIN_KEY));
 const WISH_MAX = 15, LANTERN_GAP = 15000, HEART_GAP = 1500;   // 소원 풍등 글자 수·간격, 하트 간격
 const FW_KINDS = 5, FW_COLORS = 7;   // index.html FW_SHAPES·FW_HUES 길이와 같아야 함
 
 const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const adminPage = fs.readFileSync(path.join(__dirname, "admin.html"));
 const ogImage = fs.readFileSync(path.join(__dirname, "og.jpg"));
 const server = http.createServer((req, res) => {
   if (req.url === "/health") { res.writeHead(200); return res.end("ok"); }
+  if (req.url === "/admin") { res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }); return res.end(adminPage); }
+  if (req.url === "/admin/feedback") {
+    if (!isAdminKey(req.headers["x-admin-key"])) { res.writeHead(403); return res.end("forbidden"); }
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    return res.end(JSON.stringify({ items: feedback.slice().reverse(), webhook: !!FEEDBACK_WEBHOOK }));
+  }
   if (req.url === "/stats") {
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(JSON.stringify({ total: total(), rooms: rooms.map(r => r.users.size), today: summary(day), yesterday: prevDay && summary(prevDay) }, null, 1));
@@ -88,7 +106,7 @@ function summary(d) {
     avgMin: s.length ? +(s.reduce((a, b) => a + b, 0) / s.length / 60).toFixed(1) : 0, medianMin: +(mid / 60).toFixed(1),
     over5min: s.filter(x => x >= 300).length, peak: d.peak, sources: d.sources };
 }
-function rollDay() { if (day.date !== kstDate()) { console.log("[stats] " + JSON.stringify(summary(day))); prevDay = day; day = newDay(); } }
+function rollDay() { if (day.date !== kstDate()) { fbCount.clear(); console.log("[stats] " + JSON.stringify(summary(day))); prevDay = day; day = newDay(); } }
 setInterval(() => { rollDay(); if (new Date().getMinutes() === 0) console.log("[stats] " + JSON.stringify(summary(day))); }, 60000);
 const ipKey = ip => require("crypto").createHash("sha256").update(ip + day.date).digest("hex").slice(0, 12);  // IP는 저장하지 않고 하루짜리 해시만
 
@@ -129,7 +147,7 @@ wss.on("connection", (ws, req) => {
   let asked = null; try { asked = decodeURIComponent((/[?&]nick=([^&]{1,120})/.exec(req.url) || [])[1] || ""); } catch {}
   let key = null; try { key = decodeURIComponent((/[?&]admin=([^&]{1,200})/.exec(req.url) || [])[1] || ""); } catch {}
   u.admin = isAdminKey(key);
-  u.nick = cleanNick(asked, u.admin) || randNick();
+  u.nick = (u.admin ? cleanNick(asked, "free", 12) : cleanNick(asked)) || randNick();   // 운영자 닉네임은 12자까지, 거르지 않음
   room.users.set(u.id, u);
   ws.alive = true;
   send(ws, { t: "init", you: u.id, admin: u.admin, adminHere: adminHere(room) || u.admin, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
@@ -162,19 +180,31 @@ wss.on("connection", (ws, req) => {
     } else if (m.t === "lantern") {
       // 소원 풍등: 한 줄 소원(15자, 욕설·음란어는 글 없이 풍등만). 운영자가 방에 있으면 금빛
       const now = Date.now();
-      if (now - (u.lastLantern || 0) < LANTERN_GAP) return;
+      if (!u.admin && now - (u.lastLantern || 0) < LANTERN_GAP) return;
       u.lastLantern = now;
-      const w = m.w ? cleanNick(m.w, true, WISH_MAX) || "" : "";
+      const w = !m.w ? "" : u.admin ? cleanNick(m.w, "free", 40) || "" : cleanNick(m.w, true, WISH_MAX) || "";
       broadcast(room, { t: "lantern", id: u.id, w, gold: adminHere(room) || undefined });
     } else if (m.t === "heart" && Number.isInteger(m.to) && m.to !== u.id && room.users.has(m.to)) {
       const now = Date.now();
-      if (now - (u.lastHeart || 0) < HEART_GAP) return;
+      if (!u.admin && now - (u.lastHeart || 0) < HEART_GAP) return;
       u.lastHeart = now;
       broadcast(room, { t: "heart", from: u.id, to: m.to });
+    } else if (m.t === "say" && u.admin && typeof m.text === "string") {
+      // 말풍선은 운영자만 (제한 없음, 80자까지 화면에 맞게)
+      const text = cleanNick(m.text, "free", 80); if (text) broadcast(room, { t: "say", id: u.id, text });
+    } else if (m.t === "feedback" && typeof m.text === "string") {
+      // 바라는 점: 누구나 300자까지, 1분에 하나·IP당 하루 5개, 욕설·음란어는 돌려보냄. 운영자만 /admin에서 본다
+      const now = Date.now(), k = ipKey(ip), used = fbCount.get(k) || 0;
+      if (!u.admin && (now - (u.lastFb || 0) < 60000 || used >= 5)) return send(ws, { t: "feedbackBad", why: "wait" });
+      const text = cleanNick(m.text, u.admin ? "free" : true, 300);
+      if (!text) return send(ws, { t: "feedbackBad", why: text === false ? "bad" : "empty" });
+      u.lastFb = now; fbCount.set(k, used + 1);
+      saveFeedback({ at: new Date().toISOString(), nick: u.nick, room: room.no, text });
+      send(ws, { t: "feedbackOk" });
     } else if (m.t === "nick") {
       const now = Date.now();
-      if (now - u.lastNick < NICK_GAP) return send(ws, { t: "nickbad", why: "wait" });
-      const n = cleanNick(m.n, u.admin);
+      if (!u.admin && now - u.lastNick < NICK_GAP) return send(ws, { t: "nickbad", why: "wait" });
+      const n = u.admin ? cleanNick(m.n, "free", 12) : cleanNick(m.n);
       if (!n) return send(ws, { t: "nickbad", why: n === false ? "bad" : "empty" });
       u.lastNick = now; u.nick = n;
       broadcast(room, { t: "nick", id: u.id, n });
