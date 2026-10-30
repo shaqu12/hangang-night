@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 const CAP = 30;              // 방 하나의 돗자리 수 (index.html의 SEATS와 같아야 함)
 const MAX_ROOMS = 20;        // 최대 600명
 const PER_IP = +process.env.PER_IP || 20;          // IP당 동시 접속 (통신사·학교 와이파이는 여러 사람이 IP 하나를 같이 써서 넉넉히)
-const EMOJIS = ["🌙", "✨", "🍜", "👋", "💤", "❤️"];
+const EMOJIS = ["❤️", "👍", "😂", "🥺", "👋", "✨", "🌙"];   // 마음(감정) 이모지. 행동(라면·눕기 등)은 ACTS로 따로
 const COLORS = ["#e9a87c", "#8fb8de", "#b8d98f", "#e6c76f", "#d79bc4", "#9fd6cf", "#f0f0ea", "#c9a6f2", "#f29b9b", "#7fa3c9"];
 const EMO_GAP = 1200;        // 이모지 최소 간격(ms)
 const SIT_GAP = 600;         // 자리 옮기기 최소 간격(ms)
@@ -190,7 +190,7 @@ wss.on("connection", (ws, req) => {
       const now = Date.now();
       if (!u.admin && now - (u.lastHeart || 0) < HEART_GAP) return;
       u.lastHeart = now;
-      broadcast(room, { t: "heart", from: u.id, to: m.to });
+      broadcast(room, { t: "heart", from: u.id, to: m.to, e: EMOJIS.includes(m.e) ? m.e : undefined });
     } else if (m.t === "say" && u.admin && typeof m.text === "string") {
       // 말풍선은 운영자만 (제한 없음, 80자까지 화면에 맞게)
       const text = cleanNick(m.text, "free", 80); if (text) broadcast(room, { t: "say", id: u.id, text });
@@ -217,7 +217,8 @@ wss.on("connection", (ws, req) => {
       u.lastFw = now;
       const r = n => Math.floor(Math.random() * n);
       if (now - room.fountainAt > FOUNTAIN_LEN + FOUNTAIN_GAP && Math.random() < FOUNTAIN_P) { room.fountainAt = now + 1600; setTimeout(() => broadcast(room, { t: "fountain" }), 1600); }   // 폭죽이 터질 즈음 켠다
-      broadcast(room, { t: "fw", id: u.id, p: Math.round(m.p * 100) / 100, k: r(FW_KINDS), h: r(FW_COLORS), h2: r(FW_COLORS), s: r(1e9), gold: u.admin || undefined });
+      const x = typeof m.x === "number" && m.x >= 0 && m.x <= 1 ? Math.round(m.x * 1000) / 1000 : undefined;   // 조준한 가로 위치(화면 비율)
+      broadcast(room, { t: "fw", id: u.id, p: Math.round(m.p * 100) / 100, x, k: r(FW_KINDS), h: r(FW_COLORS), h2: r(FW_COLORS), s: r(1e9), gold: u.admin || undefined });
     } else if (m.t === "sit" && Number.isInteger(m.seat) && m.seat >= 0 && m.seat < CAP && m.seat !== u.seat) {
       const now = Date.now();
       if (now - u.lastSit < SIT_GAP) return;

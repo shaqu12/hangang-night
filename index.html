@@ -46,6 +46,13 @@
   #emo button { all: unset; cursor: pointer; font-size: 24px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; transition: transform .15s, background .15s; }
   #emo button:active { transform: scale(.85); background: rgba(255,255,255,.12); }
   #emo button.cool { opacity: .35; }
+  #emo { flex-direction: column; align-items: center; } #emo .row { display: flex; gap: 2px; } #emo small { color: var(--dim); font-size: 11.5px; padding: 2px 8px 4px; white-space: nowrap; }
+  #emo button { touch-action: none; }
+  #actp { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px); display: none; grid-template-columns: repeat(4, 62px); gap: 4px; padding: 8px; }
+  #actp.open { display: grid; }
+  #actp button { all: unset; cursor: pointer; height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; border-radius: 14px; font-size: 22px; line-height: 1; }
+  #actp button span { font-size: 11px; color: var(--dim); } #actp button.sel { background: rgba(243,217,164,.2); } #actp button.sel span { color: var(--ink); }
+  #drag { position: fixed; left: 0; top: 0; font-size: 38px; pointer-events: none; display: none; z-index: 20; filter: drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
   #mixer { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 52px); right: 16px; width: min(300px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 18px; display: none; font-size: 14px; }
   #mixer.on { display: block; }
   #mixer .row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
@@ -107,7 +114,9 @@
   <div id="mxTracks"></div>
   <small>폭죽 소리만 끄고 강물 소리는 남길 수 있어요. 설정은 이 기기에 저장돼요.</small>
 </div>
-<div id="emo" class="pill"></div>
+<div id="emo" class="pill"><small>친구에게 끌어다 놓으면 날아가요 · 누르면 내 머리 위에</small><div class="row" id="emoRow"></div></div>
+<div id="actp" class="pill"></div>
+<div id="drag"></div>
 <div id="acts" class="pill"></div>
 <div id="fwInfo" class="pill"></div>
 <div id="wishBox" class="pill"><b>🏮 소원 풍등</b><small>한 줄 소원을 적으면 모두에게 잠깐 보여요 (15자, 비워도 돼요)</small><div><input id="wishEd" maxlength="15" autocomplete="off" enterkeyhint="send" aria-label="소원" placeholder="예: 내일은 푹 자기"></div><div class="btns"><button id="wishCancel">닫기</button><button id="wishSend" class="on">띄우기</button></div></div>
@@ -423,38 +432,38 @@ function drawBridge(t, dt, dY, pY, bY) {
   // 분수: 반포대교처럼 상판 옆 노즐마다 물줄기가 부채꼴로 길게 휘어 강물로 떨어진다. 색은 화면 가로로 빨강→분홍→보라→파랑이 천천히 흐르고,
   // 물이 떨어지는 줄에는 안개, 강물에는 길게 비친 색. 쇼 때만 그리므로 평소 부담은 0
   if (fade > 0) {
-    const grow = Math.min(1, age / 4), gap = 18 * U, n = Math.ceil(W / gap) + 4, sy = dY + 2.5 * U, land0 = hit + 2 * U, deep = (bY - hit) * .3;
-    const hueAt = x => 285 + 70 * Math.sin(TAU * (x / W * .8 + t * .02));            // 빨강·분홍·보라·파랑 사이를 부드럽게
+    // 달빛무지개분수: 상판 옆 노즐 수백 개가 촘촘한 물 커튼을 만들고, 무지개색이 다리를 따라 흐르며, 물결처럼 높낮이가 출렁인다
+    const grow = Math.min(1, age / 3), sy = dY + 2.5 * U, land0 = hit + 2 * U, deep = (bY - hit) * .34, g = 2.4 * U, A = fade;
+    const hueAt = x => ((x / W * 320 + t * 30) % 360 + 360) % 360;                   // 빨주노초파남보가 천천히 흘러간다
     cx.globalCompositeOperation = "lighter"; cx.lineCap = "round";
-    for (let i = -4; i < n; i++) {
-      const x = i * gap, sw = Math.sin(t * 1.1 + i * .5);
-      for (let j = 0; j < 3; j++) {                                                   // 노즐 하나에서 멀리·중간·가까이 3줄기 = 부채꼴
-        const reach = (34 + j * 15 + 3 * sw) * U * grow, lift = (6 + j * 3) * U * grow;
-        const ex = x + reach, ey = land0 + deep * (.15 + j * .3) * grow, hue = hueAt(x + reach * .5);
-        const path = () => { cx.beginPath(); cx.moveTo(x, sy); cx.bezierCurveTo(x + reach * .35, sy - lift, x + reach * .85, sy - lift * .3, ex, ey); };
-        cx.setLineDash([]);
-        cx.strokeStyle = `hsla(${hue},95%,60%,${.06 * fade})`; cx.lineWidth = 3.2 * U; path(); cx.stroke();          // 은은한 빛
-        cx.strokeStyle = `hsla(${hue},92%,70%,${(.34 - j * .06) * fade})`; cx.lineWidth = .9 * U; path(); cx.stroke();   // 물줄기
-        cx.strokeStyle = `hsla(${hue},80%,90%,${.5 * fade})`; cx.lineWidth = .8 * U;                                    // 흘러가는 물 반짝임
-        cx.setLineDash([1.5 * U, 11 * U]); cx.lineDashOffset = -t * 40 * U - i * 7 - j * 5; path(); cx.stroke();
-      }
+    for (let k = 0; k < 20; k++) {                                                    // 다리 둘레로 번지는 무지개 빛
+      const x = k * W / 20, hue = hueAt(x + W / 40), top = dY - 26 * U, bot = land0 + deep * 1.1;
+      const gg = cx.createLinearGradient(0, top, 0, bot);
+      gg.addColorStop(0, `hsla(${hue},95%,60%,0)`); gg.addColorStop(.4, `hsla(${hue},95%,60%,${.13 * A * grow})`); gg.addColorStop(1, `hsla(${hue},95%,60%,0)`);
+      cx.fillStyle = gg; cx.fillRect(x, top, W / 20 + 1, bot - top);
     }
-    cx.setLineDash([]);
-    // 떨어지는 줄의 안개 띠
-    for (let k = 0; k < 12; k++) {
-      const x = k * W / 12, hue = hueAt(x + W / 24);
-      const g = cx.createLinearGradient(0, land0 - 3 * U, 0, land0 + deep * 1.4);
-      g.addColorStop(0, `hsla(${hue},90%,70%,0)`); g.addColorStop(.4, `hsla(${hue},90%,70%,${.13 * fade * grow})`); g.addColorStop(1, `hsla(${hue},90%,70%,0)`);
-      cx.fillStyle = g; cx.fillRect(x, land0 - 3 * U, W / 12 + 1, deep * 1.4 + 3 * U);
+    for (let x = -g * 8; x < W + g; x += g) {                                         // 물줄기 커튼
+      const i = Math.round(x / g), wave = .5 + .5 * Math.sin(t * 1.7 - x * .022), hue = hueAt(x);
+      const lift = (4 + 10 * wave) * U * grow, out = (10 + 9 * wave) * U * grow, ex = x + out, ey = land0 + deep * (.3 + .6 * wave) * grow;
+      const path = () => { cx.beginPath(); cx.moveTo(x, sy); cx.quadraticCurveTo(x + out * .4, sy - lift * 1.6, ex, ey); };
+      cx.strokeStyle = `hsla(${hue},100%,60%,${.08 * A})`; cx.lineWidth = 3.6 * U; path(); cx.stroke();          // 번짐
+      cx.strokeStyle = `hsla(${hue},100%,70%,${.42 * A})`; cx.lineWidth = .8 * U; path(); cx.stroke();           // 물줄기
+      cx.strokeStyle = `hsla(${hue},60%,95%,${.7 * A})`; cx.lineWidth = .7 * U;                                    // 흘러내리는 물방울
+      cx.setLineDash([1.2 * U, 10 * U]); cx.lineDashOffset = -t * 60 * U - i * 3.3; path(); cx.stroke(); cx.setLineDash([]);
+      cx.fillStyle = `hsla(${hue},100%,88%,${.8 * A})`; cx.fillRect(x - .6 * U, sy - .6 * U, 1.2 * U, 1.2 * U);   // 노즐 불빛
     }
-    // 강물에 길게 비친 색
-    for (let i = 0; i < n; i++) {
-      const x = i * gap + gap / 2, rgb = hsl2rgb(hueAt(x));
-      for (let k = 0; k < 3; k++) streak(x + Math.sin(t * 1.4 + i + k) * 1.5 * U, land0 + deep * 1.1 + k * 5 * U, (6 - k) * U, (.14 - k * .035) * fade * grow, rgb);
+    for (let k = 0; k < 28; k++) {                                                    // 물이 떨어지는 자리의 하얀 물안개
+      const x = k * W / 28 + W / 56, wave = .5 + .5 * Math.sin(t * 1.7 - x * .022), y = land0 + deep * (.3 + .6 * wave) * grow;
+      const rg = cx.createRadialGradient(x, y, 0, x, y, 16 * U); rg.addColorStop(0, `hsla(${hueAt(x)},70%,85%,${.22 * A * grow})`); rg.addColorStop(1, "hsla(0,0%,100%,0)");
+      cx.fillStyle = rg; cx.fillRect(x - 16 * U, y - 16 * U, 32 * U, 32 * U);
     }
-    for (let k = 0; k < 40; k++) {                                                    // 물보라
-      const x = ((k * 97.13 + t * 13) % W), y = land0 + ((k * .317) % 1) * deep - Math.abs(Math.sin(t * 3 + k)) * 3 * U;
-      cx.fillStyle = `rgba(255,255,255,${.4 * fade * grow})`; cx.fillRect(x, y, 1.2, 1.2);
+    for (let x = g; x < W; x += g * 2.5) {                                            // 강물에 길게 일렁이는 반사
+      const rgb = hsl2rgb(hueAt(x)), wave = .5 + .5 * Math.sin(t * 1.7 - x * .022), y0 = land0 + deep * (.3 + .6 * wave) * grow + 3 * U;
+      for (let k = 0; k < 6; k++) streak(x + Math.sin(t * 2 + x * .3 + k) * 1.6 * U, y0 + k * 4.5 * U, (5.5 - k * .7) * U, (.3 - k * .045) * A * grow, rgb);
+    }
+    for (let k = 0; k < 70; k++) {                                                    // 반짝이는 물보라
+      const x = (k * 97.13 + t * 9) % W, y = sy + ((k * .618) % 1) * (land0 + deep - sy), tw = Math.sin(t * 6 + k * 2.3);
+      if (tw > .4) { cx.fillStyle = `rgba(255,255,255,${(tw - .4) * 1.4 * A * grow})`; cx.fillRect(x, y, 1.4 * U, 1.4 * U); }
     }
     cx.globalCompositeOperation = "source-over";
   }
@@ -855,7 +864,7 @@ cv.addEventListener("pointerdown", e => {
   if (!aiming && onMailbox(e.clientX, e.clientY)) return isAdmin ? openInbox() : openBox("fb");   // 소원 우체통
   if (!aiming && onMyChar(e.clientX, e.clientY)) return openNickBox();                  // 내 캐릭터(이름표)를 누르면 닉네임 바꾸기
   const other = !aiming && charAt(e.clientX, e.clientY);
-  if (other) return sendHeart(other.id);                                                 // 다른 사람을 누르면 하트
+  if (other) { closePanels(); $("emo").classList.add("open"); return toast(`😊 이모지를 끌어서 ${other.nick}님에게 놓아 보세요`, 2600); }   // 다른 사람을 누르면 마음 보내기 안내
   if (aiming || !canPick()) return;
   const i = seatAt(e.clientX, e.clientY);
   if (i < 0 || seatTaken(i)) return;
@@ -886,7 +895,7 @@ function launchFw(m) {
   const c = chars.get(m.id); if (!c) return;
   c.fwAt = performance.now();
   const r = rng(m.s), o = fwFrom(c), ty = Math.max(fwApex(m.p), fwR(m.p) * 1.05 + 58);   // 가로 화면에서 위로 잘리지 않게
-  const tx = o.x + (W / 2 - o.x) * .3 + (r() - .5) * W * .25;
+  const tx = typeof m.x === "number" ? m.x * W + (r() - .5) * W * .03 : o.x + (W / 2 - o.x) * .3 + (r() - .5) * W * .25;   // 조준한 방향(화면 가로 비율)
   const dur = 1 + .5 * m.p;
   rockets.push({ ...m, r, x0: o.x, y0: o.y, tx, ty, age: 0, dur, mine: m.id === me, trail: [], nick: c.nick, admin: c.admin });
   whistle(dur, m.p, m.id === me);
@@ -1047,14 +1056,16 @@ function drawAim(t) {
   const c = chars.get(me); if (!aiming || !c) return;
   const o = fwFrom(c), p = aim ? aim.p : 0, ty = fwApex(p);
   cx.strokeStyle = `rgba(243,217,164,${aim ? .8 : .35 + .2 * Math.sin(t * 4)})`; cx.lineWidth = 1.5 * U; cx.setLineDash([3 * U, 5 * U]);
-  cx.beginPath(); cx.moveTo(o.x, o.y); cx.lineTo(o.x, aim ? ty : o.y - 40 * U); cx.stroke(); cx.setLineDash([]);
-  if (aim) { cx.beginPath(); cx.arc(o.x, ty, (6 + 14 * p) * U, 0, TAU); cx.stroke(); }
+  const tx = aim ? aimX(c, aim.d) : o.x;
+  cx.beginPath(); cx.moveTo(o.x, o.y); cx.lineTo(tx, aim ? ty : o.y - 40 * U); cx.stroke(); cx.setLineDash([]);
+  if (aim) { cx.beginPath(); cx.arc(tx, ty, (6 + 14 * p) * U, 0, TAU); cx.stroke(); }
 }
+function aimX(c, d) { const o = fwFrom(c); return Math.max(W * .06, Math.min(W * .94, o.x + (W / 2 - o.x) * .3 * (1 - Math.abs(d)) + d * W * .45)); }
 function syncFwInfo() {
   const el = $("fwInfo");
   el.classList.toggle("on", aiming);
   const wait = Math.max(0, FW_GAP - (performance.now() - lastFwSent));
-  el.textContent = aim ? `${Math.round(aim.p * 100)}% · 놓으면 쏴요` : `아래로 당겼다 놓기 · 오늘 ${fwToday}발`;
+  el.textContent = aim ? `${Math.round(aim.p * 100)}% ${aim.d > .15 ? "→" : aim.d < -.15 ? "←" : "↑"} · 놓으면 쏴요` : `아래로 당기고 좌우로 방향 · 오늘 ${fwToday}발`;
   const b = $("acts").querySelector("[data-fw]"); if (b) { b.classList.toggle("sel", aiming); b.classList.toggle("cool", wait > 0); }
 }
 function setAiming(on) {
@@ -1064,23 +1075,24 @@ function setAiming(on) {
 }
 cv.addEventListener("pointerdown", e => {
   if (!aiming) return;
-  aim = { y0: e.clientY, p: 0, id: e.pointerId };
+  aim = { x0: e.clientX, y0: e.clientY, p: 0, d: 0, id: e.pointerId };
   try { cv.setPointerCapture(e.pointerId); } catch {}
   syncFwInfo();
 });
 cv.addEventListener("pointermove", e => {
   if (!aim || e.pointerId !== aim.id) return;
   aim.p = Math.max(0, Math.min(1, (e.clientY - aim.y0) / (H * .25)));
+  aim.d = Math.max(-1, Math.min(1, -(e.clientX - aim.x0) / (W * .25)));   // 새총처럼: 왼쪽으로 당기면 오른쪽으로 날아간다
   syncFwInfo();
 });
 const fwRelease = e => {
   if (!aim || e.pointerId !== aim.id) return;
-  const p = aim.p; aim = null;
+  const p = aim.p, d = aim.d; aim = null;
   const c = chars.get(me);
   if (p < .06) { syncFwInfo(); return toast("화면을 아래로 쭉 당겼다가 놓아 보세요", 2200); }
   if (performance.now() - lastFwSent < FW_GAP) { syncFwInfo(); return toast("폭죽 준비 중이에요. 조금만 기다려요", 1500); }
   if (!c || c.state === "leave" || !ws || ws.readyState !== 1) { syncFwInfo(); return; }
-  ws.send(JSON.stringify({ t: "fw", p }));
+  ws.send(JSON.stringify({ t: "fw", p, x: aimX(c, d) / W }));
   lastFwSent = performance.now(); fwToday++;
   try { localStorage.setItem(FW_KEY, JSON.stringify({ d: today(), n: fwToday })); } catch {}
   syncFwInfo(); setTimeout(syncFwInfo, FW_GAP + 50);
@@ -1165,7 +1177,6 @@ function drawLanterns(t, dt) {
   }
 }
 // 하트: 다른 사람 캐릭터를 누르면 내 머리 위에서 그 사람에게 하트가 날아간다
-function sendHeart(to) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "heart", to })); }
 function charAt(px, py) {
   let best = null, bd = 1e9;
   for (const c of chars.values()) {
@@ -1185,7 +1196,7 @@ function drawHearts(t, dt) {
     const x = x0 + (x1 - x0) * e, y = y0 + (y1 - y0) * e - Math.sin(e * Math.PI) * 40 * U;
     const pop = u >= 1 ? (h.age - 1.1) / 1.1 : 0;
     cx.globalAlpha = 1 - pop; cx.font = `${Math.max(16, 18 * U) * (1 + pop * .6)}px serif`; cx.textAlign = "center";
-    cx.fillText("💗", x, y - pop * 14 * U);
+    cx.fillText(h.e || "💗", x, y - pop * 14 * U);
     if (pop > 0) for (let k = 0; k < 4; k++) { const an = k / 4 * TAU + .4; cx.font = `${Math.max(9, 9 * U)}px serif`; cx.fillText("♥", x + Math.cos(an) * pop * 22 * U, y + Math.sin(an) * pop * 16 * U - pop * 10 * U); }
     cx.globalAlpha = 1;
   }
@@ -1239,10 +1250,10 @@ $("wishSend").onclick = () => {
 $("wishEd").addEventListener("keydown", e => { if (e.key === "Enter") $("wishSend").click(); });
 
 // ---------- 한강 소원 우체통 ----------
-// 산책로 오른쪽 끝에 빨간 우체통. 누구나 눌러 편지(바라는 점)를 넣고, 운영자가 누르면 편지함이 열린다. 편지가 쌓이면 투입구에 꽂혀 보인다
+// 산책로 가운데 빨간 우체통. 누구나 눌러 편지(바라는 점)를 넣고, 운영자가 누르면 편지함이 열린다. 편지가 쌓이면 투입구에 꽂혀 보인다
 let letterCount = 0;
 const envelopes = [];
-function mailboxPos() { const s = Math.max(1.25, Math.min(1.9, U * 1.6)); return { x: W - Math.max(40, 30 * U), y: H * Y.path0 + 2 * U, s }; }
+function mailboxPos() { const s = Math.max(1.25, Math.min(1.9, U * 1.6)); return { x: W / 2, y: H * Y.path0 + 2 * U, s }; }
 function drawMailbox(t) {
   const { x, y, s } = mailboxPos(), w = 13 * s, h = 22 * s, top = y - 24 * s - h;
   cx.fillStyle = "rgba(0,0,0,.3)"; cx.beginPath(); cx.ellipse(x, y + 1 * s, 12 * s, 3 * s, 0, 0, TAU); cx.fill();
@@ -1320,6 +1331,7 @@ function frame(now) {
   [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
   drawAim(t);
   drawHearts(t, dt);
+  if (dragEmo && dragEmo.over != null) { const o = chars.get(dragEmo.over); if (o) { const s2 = scaleAt(o.y); cx.strokeStyle = `rgba(243,217,164,${.6 + .3 * Math.sin(t * 8)})`; cx.lineWidth = 2 * U; cx.beginPath(); cx.ellipse(o.x, o.y, 16 * s2, 5 * s2, 0, 0, TAU); cx.stroke(); } }
   cx.drawImage(vignette, 0, 0, W, H);
   requestAnimationFrame(frame);
 }
@@ -1361,7 +1373,7 @@ function connect() {
     }
     else if (m.t === "taken") { if (!restoring) toast("앗, 방금 다른 분이 먼저 앉았어요", 2500); restoring = false; }
     else if (m.t === "lantern") launchLantern(m);
-    else if (m.t === "heart") { hearts.push({ from: m.from, to: m.to, age: 0 }); if (m.to === me) { const f = chars.get(m.from); toast(`💗 ${f ? f.nick : "누군가"}님이 하트를 보냈어요`, 2500); } }
+    else if (m.t === "heart") { hearts.push({ from: m.from, to: m.to, e: m.e, age: 0 }); if (m.to === me) { const f = chars.get(m.from); toast(`${m.e || "💗"} ${f ? f.nick : "누군가"}님이 마음을 보냈어요`, 2500); } }
     else if (m.t === "adminHere") adminOn = m.on;                                         // 알림 없이 오로라만
     else if (m.t === "say") { const c = chars.get(m.id); if (c) c.say = { text: m.text, at: performance.now() }; }
     else if (m.t === "feedbackOk") { flyLetter(); setTimeout(() => toast("💌 편지가 우체통에 들어갔어요. 고마워요, 꼭 읽어 볼게요", 4000), 900); }
@@ -1393,29 +1405,32 @@ function connect() {
 const ACTS = [["sit", "🧘", "앉기"], ["lie", "🛌", "눕기"], ["star", "🌟", "별 보기"], ["ramen", "🍜", "라면"], ["chicken", "🍗", "치킨"], ["photo", "📸", "사진"], ["stretch", "🙆", "기지개"], ["doze", "😪", "꾸벅"]];
 function buildActs() {
   const bar = $("acts");
-  const eb = document.createElement("button"); eb.innerHTML = "😊<span>이모지</span>"; eb.onclick = () => { if ($("emo").classList.toggle("open") && aiming) setAiming(false); };
+  const eb = document.createElement("button"); eb.innerHTML = "😊<span>마음</span>"; eb.setAttribute("aria-label", "마음 보내기"); eb.onclick = () => { const o = !$("emo").classList.contains("open"); closePanels(); $("emo").classList.toggle("open", o); if (o && aiming) setAiming(false); };
   bar.appendChild(eb);
   const fb = document.createElement("button"); fb.dataset.fw = 1; fb.innerHTML = "🎆<span>폭죽</span>"; fb.setAttribute("aria-label", "폭죽");
   fb.onclick = () => {
     const c = chars.get(me);
     if (!aiming && (!c || c.state === "leave")) return;
-    setAiming(!aiming); $("emo").classList.remove("open");
+    const o = !aiming; closePanels(); setAiming(o);
   };
   bar.appendChild(fb);
   const lb = document.createElement("button"); lb.innerHTML = "🏮<span>소원 풍등</span>"; lb.setAttribute("aria-label", "소원 풍등");
-  lb.onclick = () => { if (aiming) setAiming(false); $("emo").classList.remove("open"); openWish(); };
+  lb.onclick = () => { if (aiming) setAiming(false); closePanels(); openWish(); };
   bar.appendChild(lb);
   const sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
+  const ab = document.createElement("button"); ab.id = "actBtn"; ab.innerHTML = "🧘<span>행동</span>"; ab.setAttribute("aria-label", "행동");   // 내 행동(눕기·라면 등)은 따로 모아 둔다
+  ab.onclick = () => { const o = !$("actp").classList.contains("open"); closePanels(); if (aiming) setAiming(false); $("actp").classList.toggle("open", o); };
+  bar.appendChild(ab);
   for (const [id, icon, name] of ACTS) {
     const b = document.createElement("button"); b.dataset.act = id; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", name);
     b.onclick = () => {
       const c = chars.get(me);
-      if (!c || c.state !== "sit" && !(c.state === "walk" && c.then === "sit")) return toast("먼저 빈 돗자리를 눌러 앉아 주세요", 2500);
+      if (!c || c.state !== "sit" && !(c.state === "walk" && c.then === "sit")) { closePanels(); return toast("먼저 빈 돗자리를 눌러 앉아 주세요", 2500); }
       const a = c.act === id ? "sit" : id;
-      c.act = a; lastAct = a; syncActs();
+      c.act = a; lastAct = a; syncActs(); closePanels();
       if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "act", a }));
     };
-    bar.appendChild(b);
+    $("actp").appendChild(b);
   }
   bar.classList.add("on"); syncActs();
   const more = () => bar.classList.toggle("more", bar.scrollWidth - bar.clientWidth - bar.scrollLeft > 4);   // 오른쪽에 버튼이 더 있으면 흐리게
@@ -1436,19 +1451,36 @@ function buildAdmin() {
   $("nickIn").maxLength = $("nickEd").maxLength = 12; $("wishEd").maxLength = 40;      // 운영자는 길게
   bar.dispatchEvent(new Event("scroll"));
 }
-function syncActs() { const c = chars.get(me), a = c ? c.act : "sit"; $("acts").querySelectorAll("button[data-act]").forEach(b => b.classList.toggle("sel", b.dataset.act === a)); }
+function syncActs() {
+  const c = chars.get(me), a = c ? c.act : "sit";
+  $("actp").querySelectorAll("button[data-act]").forEach(b => b.classList.toggle("sel", b.dataset.act === a));
+  const cur = ACTS.find(x => x[0] === a) || ACTS[0], ab = $("actBtn"); if (ab) ab.innerHTML = `${cur[1]}<span>행동</span>`;
+}
+function closePanels() { $("emo").classList.remove("open"); $("actp").classList.remove("open"); }
+// 마음: 이모지를 누르면 내 머리 위에, 끌어서 다른 사람 캐릭터에 놓으면 그 사람에게 날아간다
+let dragEmo = null;
+function emoCool() { const bar = $("emoRow"); bar.dataset.cool = 1; bar.querySelectorAll("button").forEach(x => x.classList.add("cool")); setTimeout(() => { delete bar.dataset.cool; bar.querySelectorAll("button").forEach(x => x.classList.remove("cool")); }, 1300); }
 function buildEmoji(list) {
-  emojis = list; const bar = $("emo");
+  emojis = list; const bar = $("emoRow"), ghost = $("drag");
   for (const e of list) {
     const b = document.createElement("button"); b.textContent = e; b.setAttribute("aria-label", e);
-    b.onclick = () => {
-      if (bar.dataset.cool) return;
-      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "emo", e }));
-      const c = chars.get(me); if (c) { c.emo.push({ e, at: performance.now() }); if (e === "👋") c.waveUntil = performance.now() + 2400; }
-      $("emo").classList.remove("open");
-      bar.dataset.cool = 1; bar.querySelectorAll("button").forEach(x => x.classList.add("cool"));
-      setTimeout(() => { delete bar.dataset.cool; bar.querySelectorAll("button").forEach(x => x.classList.remove("cool")); }, 1300);
+    b.addEventListener("pointerdown", ev => { if (bar.dataset.cool) return; dragEmo = { e, x0: ev.clientX, y0: ev.clientY, id: ev.pointerId, moved: false, over: null }; try { b.setPointerCapture(ev.pointerId); } catch {} });
+    b.addEventListener("pointermove", ev => {
+      const d = dragEmo; if (!d || ev.pointerId !== d.id) return;
+      if (!d.moved && Math.hypot(ev.clientX - d.x0, ev.clientY - d.y0) > 10) { d.moved = true; ghost.textContent = e; ghost.style.display = "block"; }
+      if (d.moved) { ghost.style.transform = `translate(${ev.clientX - 22}px, ${ev.clientY - 56}px)`; const o = charAt(ev.clientX, ev.clientY - 30); d.over = o ? o.id : null; }
+    });
+    const end = ev => {
+      const d = dragEmo; if (!d || ev.pointerId !== d.id) return; dragEmo = null; ghost.style.display = "none";
+      if (ev.type === "pointercancel") return;
+      if (!d.moved) {                                                                                     // 누르기: 내 머리 위에
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "emo", e }));
+        const c = chars.get(me); if (c) { c.emo.push({ e, at: performance.now() }); if (e === "👋") c.waveUntil = performance.now() + 2400; }
+      } else if (d.over != null) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "heart", to: d.over, e })); }   // 끌어 놓기: 그 사람에게
+      else return toast("친구 캐릭터 위에 놓아 주세요", 1800);
+      closePanels(); emoCool();
     };
+    b.addEventListener("pointerup", end); b.addEventListener("pointercancel", end);
     bar.appendChild(b);
   }
 }
@@ -1516,7 +1548,7 @@ function buildMixer() {
 }
 buildMixer();
 $("snd").onclick = () => $("mixer").classList.toggle("on");
-cv.addEventListener("pointerdown", () => { $("mixer").classList.remove("on"); $("emo").classList.remove("open"); closeWish(); closeBox("say"); });
+cv.addEventListener("pointerdown", () => { $("mixer").classList.remove("on"); closePanels(); closeWish(); closeBox("say"); });
 $("snd").style.display = "none";
 fetch("amb-river.mp3", { method: "HEAD" }).then(r => {
   if (!r.ok) return;
