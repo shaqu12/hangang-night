@@ -21,14 +21,14 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(JSON.stringify({ total: total(), rooms: rooms.map(r => r.users.size) }));
   }
-  if (req.url === "/ambience.mp3") return sendAudio(req, res);
+  const am = /^\/(amb-(?:river|city|crick)\.mp3)$/.exec(req.url);
+  if (am) return sendAudio(req, res, path.join(__dirname, am[1]));
   res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" });
   res.end(page);
 });
 
-// 배경 소리. 사파리는 오디오에 Range(206) 응답이 필요하다.
-const AUDIO = path.join(__dirname, "ambience.mp3");
-function sendAudio(req, res) {
+// 배경 소리 (강물·도시·풀벌레 3개). 사파리는 오디오에 Range(206) 응답이 필요하다.
+function sendAudio(req, res, AUDIO) {
   let size; try { size = fs.statSync(AUDIO).size; } catch { res.writeHead(404); return res.end(); }
   const head = { "content-type": "audio/mpeg", "accept-ranges": "bytes", "cache-control": "public, max-age=86400" };
   const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || "");

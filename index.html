@@ -20,6 +20,16 @@
   #emo button { all: unset; cursor: pointer; font-size: 24px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; transition: transform .15s, background .15s; }
   #emo button:active { transform: scale(.85); background: rgba(255,255,255,.12); }
   #emo button.cool { opacity: .35; }
+  #mixer { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 52px); right: 16px; width: min(300px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 18px; display: none; font-size: 14px; }
+  #mixer.on { display: block; }
+  #mixer .row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  #mixer .row > :first-child { flex: 0 0 86px; }
+  #mixer input[type=range] { flex: 1; accent-color: #f3d9a4; min-width: 0; }
+  #mixer input[type=range]:disabled { opacity: .3; }
+  #mixer button { all: unset; cursor: pointer; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
+  #mixer button.on { background: rgba(243,217,164,.18); border-color: rgba(243,217,164,.5); color: var(--ink); }
+  #mixer .head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+  #mixer small { display: block; color: var(--dim); font-size: 12px; margin-top: 6px; }
   #toast { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 52px); left: 50%; transform: translateX(-50%); padding: 8px 16px; font-size: 13px; color: var(--ink); opacity: 0; transition: opacity .4s; white-space: nowrap; pointer-events: none; }
   #toast.on { opacity: 1; }
   #gate { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 60%, rgba(7,11,28,.3), rgba(7,11,28,.85)); transition: opacity .8s; }
@@ -38,6 +48,12 @@
   <div class="pill"><span>👤 <b id="cnt">0</b></span><button id="snd" aria-label="소리">🔈</button></div>
 </div>
 <div id="toast" class="pill"></div>
+<div id="mixer" class="pill">
+  <div class="head"><span>소리</span><button id="mxPower" class="on">켜짐</button></div>
+  <div class="row"><span>전체 크기</span><input type="range" id="mxMaster" min="0" max="100" aria-label="전체 크기"></div>
+  <div id="mxTracks"></div>
+  <small>강물만 켜 두는 걸 추천해요. 설정은 이 기기에 저장돼요.</small>
+</div>
 <div id="emo" class="pill"></div>
 <div id="gate"><div class="box">
   <h1>밤 한강 돗자리</h1>
@@ -601,26 +617,71 @@ function buildEmoji(list) {
 }
 
 // ---------- 소리 ----------
-// 실제 녹음(ambience.mp3, 출처는 README)을 반복 재생한다. 파일이 없으면 소리 버튼을 숨긴다.
-// <audio>로 틀어야 폰 화면을 꺼도 계속 나온다. 아이폰은 볼륨을 앱이 못 바꾸므로 파일 자체를 작게 만들어 둔다.
-const audio = new Audio(); audio.loop = true; audio.preload = "none"; audio.volume = .8;
-let soundOn = false, hasSound = false;
-function setSound(on) {
-  if (!hasSound) return;
-  if (!audio.src) audio.src = "ambience.mp3";
-  soundOn = on; $("snd").textContent = on ? "🔊" : "🔈"; on ? audio.play().catch(() => {}) : audio.pause();
+// 실제 녹음 3개를 따로 반복 재생하고(출처는 README), 각각 켜고 끄고 크기를 고른다.
+// 크기는 Web Audio 게인으로 조절한다(아이폰은 audio.volume을 무시하므로). 파일은 켠 것만 내려받는다.
+// 파일은 모두 -24 LUFS로 맞춰 두었고, 기본값(전체 60, 강물 70)이면 약 -39 LUFS로 아주 작게 나온다.
+const TRACKS = [
+  { id: "river", name: "🌊 강물", vol: 70, on: true },
+  { id: "city", name: "🏙️ 도시", vol: 35, on: false },
+  { id: "crick", name: "🦗 풀벌레", vol: 35, on: false },
+];
+const SND = { master: 60, power: true };
+try { const v = JSON.parse(localStorage.getItem("hn-sound") || "null"); if (v) { SND.master = v.master; SND.power = v.power; TRACKS.forEach(t => { if (v[t.id]) { t.vol = v[t.id].vol; t.on = v[t.id].on; } }); } } catch {}
+function saveSnd() { try { const v = { master: SND.master, power: SND.power }; TRACKS.forEach(t => v[t.id] = { vol: t.vol, on: t.on }); localStorage.setItem("hn-sound", JSON.stringify(v)); } catch {} }
+let actx = null, masterGain = null, started = false, hasSound = false;
+const curve = v => (v / 100) ** 2;
+function ensureCtx() {
+  if (actx) return;
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  actx = new AC(); masterGain = actx.createGain(); masterGain.connect(actx.destination);
 }
-$("snd").onclick = () => setSound(!soundOn);
+function applySound() {
+  if (!started || !hasSound) return;
+  if (actx && actx.state === "suspended") actx.resume();
+  if (masterGain) masterGain.gain.value = curve(SND.master);
+  for (const t of TRACKS) {
+    const play = SND.power && t.on;
+    if (play && !t.el) {
+      t.el = new Audio("amb-" + t.id + ".mp3"); t.el.loop = true;
+      if (actx) { t.gain = actx.createGain(); actx.createMediaElementSource(t.el).connect(t.gain); t.gain.connect(masterGain); }
+    }
+    if (!t.el) continue;
+    if (t.gain) t.gain.gain.value = curve(t.vol); else t.el.volume = Math.min(1, curve(t.vol) * curve(SND.master));
+    play ? t.el.play().catch(() => {}) : t.el.pause();
+  }
+  $("snd").textContent = SND.power && TRACKS.some(t => t.on) ? "🔊" : "🔈";
+  saveSnd();
+}
+function buildMixer() {
+  $("mxMaster").value = SND.master;
+  $("mxMaster").oninput = e => { SND.master = +e.target.value; applySound(); };
+  const pw = $("mxPower");
+  const syncPower = () => { pw.classList.toggle("on", SND.power); pw.textContent = SND.power ? "켜짐" : "꺼짐"; };
+  pw.onclick = () => { SND.power = !SND.power; syncPower(); applySound(); };
+  syncPower();
+  for (const t of TRACKS) {
+    const row = document.createElement("div"); row.className = "row";
+    const b = document.createElement("button"), r = document.createElement("input");
+    b.textContent = t.name; r.type = "range"; r.min = 0; r.max = 100; r.value = t.vol; r.setAttribute("aria-label", t.name + " 크기");
+    const sync = () => { b.classList.toggle("on", t.on); r.disabled = !t.on; };
+    b.onclick = () => { t.on = !t.on; sync(); applySound(); };
+    r.oninput = () => { t.vol = +r.value; applySound(); };
+    sync(); row.append(b, r); $("mxTracks").appendChild(row);
+  }
+}
+buildMixer();
+$("snd").onclick = () => $("mixer").classList.toggle("on");
+cv.addEventListener("pointerdown", () => $("mixer").classList.remove("on"));
 $("snd").style.display = "none";
-fetch("ambience.mp3", { method: "HEAD" }).then(r => {
+fetch("amb-river.mp3", { method: "HEAD" }).then(r => {
   if (!r.ok) return;
   hasSound = true; $("snd").style.display = "";
-  $("soundNote").textContent = "밤 강변 소리가 작게 나와요. 말은 못 하고 이모지만 보낼 수 있어요.";
+  $("soundNote").textContent = "밤 강변 소리가 작게 나와요(오른쪽 위에서 조절). 말은 못 하고 이모지만 보낼 수 있어요.";
 }).catch(() => {});
 
 $("go").onclick = () => {
   $("gate").classList.add("off");
-  setSound(true);
+  ensureCtx(); started = true; applySound();
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: "밤 한강 돗자리", artist: "밤 강변 소리" });
   connect();
 };
