@@ -15,6 +15,8 @@ const EMO_GAP = 1200;        // 이모지 최소 간격(ms)
 const SIT_GAP = 600;         // 자리 옮기기 최소 간격(ms)
 const ACTS = ["sit", "lie", "star", "ramen", "chicken", "photo", "stretch", "doze"];   // 돗자리 위 행동
 const ACT_GAP = 400;
+const FW_GAP = 2500;         // 폭죽 최소 간격(ms). 연타로 하늘을 덮지 못하게
+const FW_KINDS = 5, FW_COLORS = 7;   // index.html FW_SHAPES·FW_HUES 길이와 같아야 함
 
 const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const ogImage = fs.readFileSync(path.join(__dirname, "og.jpg"));
@@ -92,7 +94,7 @@ wss.on("connection", (ws, req) => {
   const from = (/[?&]from=([\w-]{1,20})/.exec(req.url) || [, "direct"])[1], since = Date.now();
   day.visits++; day.people.add(ipKey(ip)); day.sources[from] = (day.sources[from] || 0) + 1;
 
-  const u = { id: nextId++, seat: null, color: COLORS[Math.floor(Math.random() * COLORS.length)], ws, lastEmo: 0, lastSit: 0, act: "sit", lastAct: 0 };
+  const u = { id: nextId++, seat: null, color: COLORS[Math.floor(Math.random() * COLORS.length)], ws, lastEmo: 0, lastSit: 0, act: "sit", lastAct: 0, lastFw: 0 };
   room.users.set(u.id, u);
   ws.alive = true;
   send(ws, { t: "init", you: u.id, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub) });
@@ -114,6 +116,13 @@ wss.on("connection", (ws, req) => {
       if (now - u.lastAct < ACT_GAP) return;
       u.lastAct = now; u.act = m.a;
       broadcast(room, { t: "act", id: u.id, a: u.act });
+    } else if (m.t === "fw" && typeof m.p === "number" && m.p >= 0 && m.p <= 1) {
+      // 폭죽: 모양·색·씨앗은 서버가 정해서 모두의 화면에 같은 불꽃이 터지게 한다
+      const now = Date.now();
+      if (now - u.lastFw < FW_GAP) return;
+      u.lastFw = now;
+      const r = n => Math.floor(Math.random() * n);
+      broadcast(room, { t: "fw", id: u.id, p: Math.round(m.p * 100) / 100, k: r(FW_KINDS), h: r(FW_COLORS), h2: r(FW_COLORS), s: r(1e9) });
     } else if (m.t === "sit" && Number.isInteger(m.seat) && m.seat >= 0 && m.seat < CAP && m.seat !== u.seat) {
       const now = Date.now();
       if (now - u.lastSit < SIT_GAP) return;

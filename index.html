@@ -34,6 +34,9 @@
   #acts button.sel span { color: var(--ink); }
   #acts button:active { transform: scale(.9); }
   #acts .sep { flex: 0 0 1px; background: var(--line); margin: 8px 2px; }
+  #acts button.cool { opacity: .45; }
+  #fwInfo { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px); padding: 7px 14px; font-size: 13px; white-space: nowrap; display: none; pointer-events: none; }
+  #fwInfo.on { display: block; }
   #emo { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px); display: none; gap: 2px; padding: 6px; }
   #emo.open { display: flex; }
   #emo button { all: unset; cursor: pointer; font-size: 24px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; transition: transform .15s, background .15s; }
@@ -75,6 +78,7 @@
 </div>
 <div id="emo" class="pill"></div>
 <div id="acts" class="pill"></div>
+<div id="fwInfo" class="pill"></div>
 <div id="gate"><div class="box">
   <h1>밤 한강 돗자리</h1>
   <p id="gateMsg">조용한 강변에 잠깐 앉았다 가요.<br>여기 앉은 사람들은 모두 지금 접속한 사람이에요.</p>
@@ -597,7 +601,9 @@ function drawChar(c, t) {
     drawHead(c, hx, hy, s, t, act === "star" ? .9 : 1);
     // 팔
     if (act === "chicken" && bite) arm(c, shL, { x: x - 17 * s, y: c.y - 3 * s }, s);
-    if (act === "photo" || waving) {
+    const firing = now - (c.fwAt || 0) < 900 && act !== "lie";
+    if (firing) arm(c, shR, { x: x + 10 * s, y: hy - 16 * s }, s);                       // 폭죽 쏠 때 손 번쩍
+    else if (act === "photo" || waving) {
       const hand = waving ? { x: x + 13 * s + Math.sin(now / 90) * 3 * s, y: hy - 10 * s } : { x: hx + 14 * s, y: hy - 12 * s };
       arm(c, shR, hand, s);
       if (act === "photo" && !waving) {
@@ -713,7 +719,7 @@ function seatAt(px, py) {
 }
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
-  if (!canPick()) return;
+  if (aiming || !canPick()) return;
   const i = seatAt(e.clientX, e.clientY);
   if (i < 0 || seatTaken(i)) return;
   ws.send(JSON.stringify({ t: "sit", seat: i }));
@@ -723,6 +729,150 @@ cv.addEventListener("pointermove", e => {
   cv.style.cursor = i >= 0 && !seatTaken(i) ? "pointer" : "default";
 });
 
+// ---------- 폭죽 ----------
+// 🎆를 누르고 화면을 아래로 당겼다 놓으면 내 자리에서 폭죽이 솟아 하늘에서 터진다. 당긴 길이 p(0~1)로 높이·크기가 정해지고,
+// 모양·색·씨앗은 서버가 정해 같은 방 모두의 화면에 똑같이 터진다. 폰 부담 때문에 화면 전체 불꽃 알갱이는 FW_MAX개까지만.
+const FW_SHAPES = ["peony", "ring", "willow", "double", "heart"];   // server.js FW_KINDS와 길이가 같아야 함
+const FW_HUES = ["255,214,120", "255,110,110", "255,140,210", "190,140,255", "120,220,255", "150,255,160", "255,250,240"];   // server.js FW_COLORS
+const FW_MAX = 900, FW_GAP = 2500;
+const rockets = [], bursts = [];
+let fwParts = 0, aiming = false, aim = null, lastFwSent = 0, fwFlash = 0, lastThump = 0;
+const FW_KEY = "hn-fw", today = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+let fwToday = 0;
+try { const v = JSON.parse(localStorage.getItem(FW_KEY) || "null"); if (v && v.d === today()) fwToday = v.n; } catch {}
+
+function fwFrom(c) { const s = scaleAt(c.y); return { x: c.x + 10 * s, y: c.y - 34 * s }; }
+const fwR = p => Math.min((34 + 62 * p) * U, H * .13);   // 불꽃 반지름. 가로 화면(하늘이 낮음)에서는 작게
+const fwApex = p => H * (Y.S * (.82 - .62 * p));   // 약하게 당기면 빌딩 바로 위, 세게 당기면 하늘 높이
+
+function launchFw(m) {
+  const c = chars.get(m.id); if (!c) return;
+  c.fwAt = performance.now();
+  const r = rng(m.s), o = fwFrom(c), ty = Math.max(fwApex(m.p), fwR(m.p) * 1.05 + 58);   // 가로 화면에서 위로 잘리지 않게
+  const tx = o.x + (W / 2 - o.x) * .3 + (r() - .5) * W * .25;
+  rockets.push({ ...m, r, x0: o.x, y0: o.y, tx, ty, age: 0, dur: 1 + .5 * m.p, mine: m.id === me, trail: [] });
+}
+function burst(k) {
+  const r = k.r, shape = FW_SHAPES[k.k], R = fwR(k.p), drag = 2.2;
+  let n = Math.round((36 + 44 * k.p) * (shape === "double" ? 1.3 : 1));
+  n = Math.min(n, FW_MAX - fwParts); if (n < 8) return;
+  const ps = [], col = FW_HUES[k.h], col2 = FW_HUES[k.h2 === k.h ? (k.h + 3) % FW_HUES.length : k.h2];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * TAU + r() * .08;
+    let sp = R * drag, vx, vy, c = col;
+    if (shape === "peony") { sp *= .82 + r() * .18; vx = Math.cos(a) * sp; vy = Math.sin(a) * sp; }
+    else if (shape === "ring") { vx = Math.cos(a) * sp; vy = Math.sin(a) * sp * .45; }
+    else if (shape === "willow") { sp *= .55 + r() * .25; vx = Math.cos(a) * sp; vy = Math.sin(a) * sp; c = "255,200,110"; }
+    else if (shape === "double") { const inner = i % 3 === 0; sp *= inner ? .45 : .88 + r() * .12; vx = Math.cos(a) * sp; vy = Math.sin(a) * sp; if (inner) c = col2; }
+    else { const hx = 16 * Math.sin(a) ** 3, hy = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)); vx = hx / 17 * sp; vy = hy / 17 * sp; }
+    ps.push({ x: k.tx, y: k.ty, vx, vy, c, tw: r() });
+  }
+  fwParts += n;
+  bursts.push({ ps, n, age: 0, life: shape === "willow" ? 3.2 : 1.9, grav: (shape === "willow" ? 26 : 14) * U, drag: shape === "willow" ? 2.8 : drag, x: k.tx, y: k.ty, R, col });
+  fwFlash = Math.min(1, fwFlash + .5 + .4 * k.p);
+  thump(k.p, k.mine);
+}
+// 멀리서 '퍽': 잡음을 아주 짧게 낮은 음으로 걸러서. 기존 소리 패널(전체 크기·켜짐)을 그대로 따른다
+let noiseBuf = null;
+function thump(p, mine) {
+  if (!actx || !SND.power || !started) return;
+  const now = performance.now(); if (now - lastThump < 160) return; lastThump = now;
+  if (!noiseBuf) { noiseBuf = actx.createBuffer(1, actx.sampleRate * .5 | 0, actx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (actx.sampleRate * .06)); }
+  const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain(), t0 = actx.currentTime + .25;   // 멀어서 소리가 조금 늦게 온다
+  src.buffer = noiseBuf; f.type = "lowpass"; f.frequency.value = 180 + 120 * p;
+  g.gain.setValueAtTime((mine ? .5 : .3) * (.6 + .4 * p), t0);
+  src.connect(f); f.connect(g); g.connect(masterGain); src.start(t0);
+}
+function drawFireworks(t, dt) {
+  const base = H * Y.S, dY = H * Y.D, pY = H * Y.P, bY = H * Y.B;
+  const water = (y, a) => { const ry = 2 * base - y; return ry > base && ry < bY && !(ry > dY && ry < pY) ? ry : null; };   // 물에 비친 자리(다리 뒤는 빼고)
+  cx.globalCompositeOperation = "lighter";
+  if (fwFlash > .01) { cx.fillStyle = `rgba(255,220,200,${.07 * fwFlash})`; cx.fillRect(0, 0, W, bY); fwFlash *= Math.exp(-dt * 5); }
+  for (let i = rockets.length - 1; i >= 0; i--) {
+    const k = rockets[i]; k.age += dt;
+    const u = Math.min(1, k.age / k.dur), e = 1 - (1 - u) ** 2;
+    const x = k.x0 + (k.tx - k.x0) * u + Math.sin(u * 9 + k.s) * 1.5 * U, y = k.y0 + (k.ty - k.y0) * e;
+    k.trail.push(x, y); if (k.trail.length > 16) k.trail.splice(0, 2);
+    cx.lineWidth = 1.6 * U; cx.lineCap = "round";
+    cx.strokeStyle = "rgba(255,210,150,.55)"; cx.beginPath(); cx.moveTo(k.trail[0], k.trail[1]); for (let j = 2; j < k.trail.length; j += 2) cx.lineTo(k.trail[j], k.trail[j + 1]); cx.stroke();
+    cx.fillStyle = "rgba(255,240,210,.95)"; cx.fillRect(x - 1.3 * U, y - 1.3 * U, 2.6 * U, 2.6 * U);
+    const ry = water(y); if (ry) { cx.fillStyle = "rgba(255,220,170,.25)"; cx.fillRect(x - 1 * U + Math.sin(t * 7 + y) * U, ry, 2 * U, 4 * U); }
+    if (u >= 1) { rockets.splice(i, 1); burst(k); }
+  }
+  for (let i = bursts.length - 1; i >= 0; i--) {
+    const b = bursts[i]; b.age += dt;
+    const lk = b.age / b.life;
+    if (lk >= 1) { fwParts -= b.n; bursts.splice(i, 1); continue; }
+    if (b.age < .25) {                                                      // 터지는 순간 번쩍
+      const g = cx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.R * 1.3); g.addColorStop(0, `rgba(${b.col},${.45 * (1 - b.age / .25)})`); g.addColorStop(1, `rgba(${b.col},0)`);
+      cx.fillStyle = g; cx.fillRect(b.x - b.R * 1.3, b.y - b.R * 1.3, b.R * 2.6, b.R * 2.6);
+    }
+    const dr = Math.exp(-b.drag * dt), a = Math.min(1, 1.25 * (1 - lk) ** 1.1), tail = .06;
+    // 같은 색끼리 한 번에 그린다(알갱이마다 stroke하면 폰에서 느려짐)
+    const groups = new Map();
+    for (const p of b.ps) {
+      p.vx *= dr; p.vy = p.vy * dr + b.grav * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      if (lk > .55 && Math.sin(t * 22 + p.tw * 40) > .4) continue;      // 끝무렵 반짝반짝
+      let gp = groups.get(p.c); if (!gp) groups.set(p.c, gp = []); gp.push(p);
+    }
+    cx.lineWidth = (lk < .3 ? 2.8 : 2) * U;
+    for (const [c, ps] of groups) {
+      cx.strokeStyle = `rgba(${c},${a})`; cx.beginPath();
+      for (const p of ps) { cx.moveTo(p.x, p.y); cx.lineTo(p.x - p.vx * tail, p.y - p.vy * tail); }
+      cx.stroke();
+      cx.fillStyle = `rgba(${c},${a * .3})`; cx.beginPath();
+      for (const p of ps) { const ry = water(p.y); if (ry) cx.rect(p.x + Math.sin(t * 6 + ry * .3) * 1.5 * U - U, ry, 2 * U, 3.5 * U); }
+      cx.fill();
+    }
+  }
+  cx.globalCompositeOperation = "source-over";
+}
+// 조준: 내 캐릭터 머리 위로 터질 높이까지 점선과 동그라미
+function drawAim(t) {
+  const c = chars.get(me); if (!aiming || !c) return;
+  const o = fwFrom(c), p = aim ? aim.p : 0, ty = fwApex(p);
+  cx.strokeStyle = `rgba(243,217,164,${aim ? .8 : .35 + .2 * Math.sin(t * 4)})`; cx.lineWidth = 1.5 * U; cx.setLineDash([3 * U, 5 * U]);
+  cx.beginPath(); cx.moveTo(o.x, o.y); cx.lineTo(o.x, aim ? ty : o.y - 40 * U); cx.stroke(); cx.setLineDash([]);
+  if (aim) { cx.beginPath(); cx.arc(o.x, ty, (6 + 14 * p) * U, 0, TAU); cx.stroke(); }
+}
+function syncFwInfo() {
+  const el = $("fwInfo");
+  el.classList.toggle("on", aiming);
+  const wait = Math.max(0, FW_GAP - (performance.now() - lastFwSent));
+  el.textContent = aim ? `${Math.round(aim.p * 100)}% · 놓으면 쏴요` : `아래로 당겼다 놓기 · 오늘 ${fwToday}발`;
+  const b = $("acts").querySelector("[data-fw]"); if (b) { b.classList.toggle("sel", aiming); b.classList.toggle("cool", wait > 0); }
+}
+function setAiming(on) {
+  aiming = on; aim = null;
+  cv.style.touchAction = on ? "none" : "manipulation";
+  syncFwInfo();
+}
+cv.addEventListener("pointerdown", e => {
+  if (!aiming) return;
+  aim = { y0: e.clientY, p: 0, id: e.pointerId };
+  try { cv.setPointerCapture(e.pointerId); } catch {}
+  syncFwInfo();
+});
+cv.addEventListener("pointermove", e => {
+  if (!aim || e.pointerId !== aim.id) return;
+  aim.p = Math.max(0, Math.min(1, (e.clientY - aim.y0) / (H * .25)));
+  syncFwInfo();
+});
+const fwRelease = e => {
+  if (!aim || e.pointerId !== aim.id) return;
+  const p = aim.p; aim = null;
+  const c = chars.get(me);
+  if (p < .06) { syncFwInfo(); return toast("화면을 아래로 쭉 당겼다가 놓아 보세요", 2200); }
+  if (performance.now() - lastFwSent < FW_GAP) { syncFwInfo(); return toast("폭죽 준비 중이에요. 조금만 기다려요", 1500); }
+  if (!c || c.state === "leave" || !ws || ws.readyState !== 1) { syncFwInfo(); return; }
+  ws.send(JSON.stringify({ t: "fw", p }));
+  lastFwSent = performance.now(); fwToday++;
+  try { localStorage.setItem(FW_KEY, JSON.stringify({ d: today(), n: fwToday })); } catch {}
+  syncFwInfo(); setTimeout(syncFwInfo, FW_GAP + 50);
+};
+cv.addEventListener("pointerup", fwRelease);
+cv.addEventListener("pointercancel", e => { if (aim && e.pointerId === aim.id) { aim = null; syncFwInfo(); } });
+
 // ---------- 루프 ----------
 let last = performance.now();
 function frame(now) {
@@ -730,11 +880,13 @@ function frame(now) {
   const t = now / 1000;
   cx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawScene(t, dt);
+  drawFireworks(t, dt);
   const mine = chars.get(me), picking = canPick();
   const glowBase = !picking ? 0 : mine.state === "sit" ? .2 : .6;
   seats.forEach((s, i) => drawMat(s, glowBase && !seatTaken(i) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
   for (const c of chars.values()) stepChar(c, dt);
   [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
+  drawAim(t);
   cx.drawImage(vignette, 0, 0, W, H);
   requestAnimationFrame(frame);
 }
@@ -762,6 +914,7 @@ function connect() {
     else if (m.t === "taken") toast("앗, 방금 다른 분이 먼저 앉았어요", 2500);
     else if (m.t === "leave") removeChar(m.id);
     else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
+    else if (m.t === "fw") launchFw(m);
     else if (m.t === "act") { const c = chars.get(m.id); if (c) c.act = m.a; }
     else if (m.t === "count") $("cnt").textContent = m.room;
     else if (m.t === "full") { toast(m.why === "ip" ? "이 기기에서 너무 많이 접속했어요" : "지금 모든 강변이 꽉 찼어요", 0); retry = 99; }
@@ -779,8 +932,15 @@ function connect() {
 const ACTS = [["sit", "🧘", "앉기"], ["lie", "🛌", "눕기"], ["star", "🌟", "별 보기"], ["ramen", "🍜", "라면"], ["chicken", "🍗", "치킨"], ["photo", "📸", "사진"], ["stretch", "🙆", "기지개"], ["doze", "😪", "꾸벅"]];
 function buildActs() {
   const bar = $("acts");
-  const eb = document.createElement("button"); eb.innerHTML = "😊<span>이모지</span>"; eb.onclick = () => $("emo").classList.toggle("open");
+  const eb = document.createElement("button"); eb.innerHTML = "😊<span>이모지</span>"; eb.onclick = () => { if ($("emo").classList.toggle("open") && aiming) setAiming(false); };
   bar.appendChild(eb);
+  const fb = document.createElement("button"); fb.dataset.fw = 1; fb.innerHTML = "🎆<span>폭죽</span>"; fb.setAttribute("aria-label", "폭죽");
+  fb.onclick = () => {
+    const c = chars.get(me);
+    if (!aiming && (!c || c.state === "leave")) return;
+    setAiming(!aiming); $("emo").classList.remove("open");
+  };
+  bar.appendChild(fb);
   const sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
   for (const [id, icon, name] of ACTS) {
     const b = document.createElement("button"); b.dataset.act = id; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", name);
