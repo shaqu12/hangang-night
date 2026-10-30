@@ -16,8 +16,8 @@ const SIT_GAP = 600;         // 자리 옮기기 최소 간격(ms)
 const ACTS = ["sit", "lie", "star", "ramen", "chicken", "photo", "stretch", "doze"];   // 돗자리 위 행동
 const ACT_GAP = 400;
 const FW_GAP = 2500;         // 폭죽 최소 간격(ms). 연타로 하늘을 덮지 못하게
-const FOUNTAIN_P = +process.env.FOUNTAIN_P || .02;   // 폭죽 1발마다 다리 무지개분수가 켜질 확률
-const FOUNTAIN_LEN = 25000, FOUNTAIN_GAP = 5 * 60000;   // 쇼 25초, 방마다 끝나고 5분은 다시 안 켜짐
+const FOUNTAIN_P = +process.env.FOUNTAIN_P || .3;    // 폭죽 1발마다 다리 무지개분수가 켜질 확률
+const FOUNTAIN_LEN = 25000, FOUNTAIN_GAP = 60000;   // 쇼 25초, 방마다 끝나고 1분은 다시 안 켜짐
 const FW_KINDS = 5, FW_COLORS = 7;   // index.html FW_SHAPES·FW_HUES 길이와 같아야 함
 
 const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");

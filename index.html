@@ -409,17 +409,42 @@ function drawBridge(t, dt, dY, pY, bY) {
     cx.fillStyle = "rgba(255,225,170,.95)"; cx.fillRect(x - .6 * U, dY - 12 * U, 2 * U, 1.4 * U);
     if (fade < .5) for (let k = 0; k < 4; k++) streak(x + Math.sin(t * 1.2 + k + x) * U, hit + 3 * U + k * 4 * U, (4 - k * .6) * U, .16 - k * .035, "255,220,160");
   }
-  // 지하철
+  // 지하철: 따뜻한 창문 불빛이 번지고, 창 아래 색 띠가 반짝이며, 지나간 자리에 반짝이가 잠깐 남는다. 30~50초마다 한 대
   nextTrain -= dt;
-  if (!train && nextTrain <= 0) train = { dir: Math.random() < .5 ? -1 : 1, p: 0 };
+  if (!train && nextTrain <= 0) train = { dir: Math.random() < .5 ? -1 : 1, p: 0, sp: [] };
   if (train) {
-    const len = 140 * U, dir = train.dir;
-    train.p += dt * 80 * U;
-    const head = dir > 0 ? -len + train.p : W + len - train.p, tail = head - dir * len;
-    cx.fillStyle = "#1e2548"; cx.fillRect(Math.min(head, tail), dY - 10 * U, len, 6 * U);
-    cx.fillStyle = "rgba(225,240,255,.9)";
-    for (let k = 0; k < 6; k++) for (let w = 0; w < 4; w++) cx.fillRect(head - dir * (k * len / 6 + 3 * U + w * 5.5 * U) - 1.5 * U, dY - 8.6 * U, 3 * U, 2.4 * U);
-    if (train.p > W + len * 2) { train = null; nextTrain = 25 + Math.random() * 30; }
+    const len = 150 * U, dir = train.dir, cars = 6, cl = len / cars, top = dY - 11.5 * U, h = 7 * U;
+    train.p += dt * 75 * U;
+    const head = dir > 0 ? -len + train.p : W + len - train.p, x0 = Math.min(head, head - dir * len);
+    cx.globalCompositeOperation = "lighter";                                          // 열차 전체 불빛 번짐
+    const gl = cx.createLinearGradient(0, top - 6 * U, 0, top + h + 6 * U);
+    gl.addColorStop(0, "rgba(255,220,170,0)"); gl.addColorStop(.5, "rgba(255,220,170,.22)"); gl.addColorStop(1, "rgba(255,220,170,0)");
+    cx.fillStyle = gl; cx.fillRect(x0 - 4 * U, top - 6 * U, len + 8 * U, h + 12 * U);
+    cx.globalCompositeOperation = "source-over";
+    for (let k = 0; k < cars; k++) {
+      const cx0 = x0 + k * cl;
+      cx.fillStyle = "#28305e"; cx.fillRect(cx0 + .6 * U, top, cl - 1.2 * U, h);
+      cx.fillStyle = "rgba(255,255,255,.12)"; cx.fillRect(cx0 + .6 * U, top, cl - 1.2 * U, .8 * U);
+      for (let w = 0; w < 4; w++) {
+        const on = .8 + .2 * Math.sin(t * 2 + k * 3 + w);
+        cx.fillStyle = `rgba(255,236,200,${on})`; cx.fillRect(cx0 + 2.6 * U + w * (cl - 4 * U) / 4, top + 1.6 * U, (cl - 4 * U) / 4 - 1.6 * U, 2.6 * U);
+      }
+    }
+    cx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < len / (2.4 * U); i++) {                                       // 창 아래 무지개 띠 + 반짝
+      const x = x0 + i * 2.4 * U, hue = (i * 7 + t * 90) % 360, tw = Math.sin(t * 9 + i * 1.7) > .85;
+      cx.fillStyle = `hsla(${hue},90%,70%,${tw ? 1 : .55})`; cx.fillRect(x, top + h - 2 * U, tw ? 2 * U : 1.4 * U, tw ? 1.4 * U : .9 * U);
+    }
+    const hx = dir > 0 ? x0 + len : x0;                                               // 앞 불빛
+    const hg = cx.createRadialGradient(hx, top + h * .6, 0, hx, top + h * .6, 22 * U); hg.addColorStop(0, "rgba(255,245,220,.55)"); hg.addColorStop(1, "rgba(255,245,220,0)");
+    cx.fillStyle = hg; cx.fillRect(hx - 22 * U, top - 16 * U, 44 * U, 44 * U);
+    if (Math.random() < dt * 30) train.sp.push({ x: dir > 0 ? x0 : x0 + len, y: top + Math.random() * h, a: 1, hue: Math.random() * 360 });   // 지나간 자리 반짝이
+    for (const p of train.sp) { p.a -= dt * .9; p.y += dt * 3 * U; cx.fillStyle = `hsla(${p.hue},90%,80%,${Math.max(0, p.a)})`; cx.fillRect(p.x, p.y, 1.4 * U, 1.4 * U); }
+    train.sp = train.sp.filter(p => p.a > 0);
+    for (let k = 0; k < cars; k++) for (let j = 0; j < 3; j++)                         // 물에 비친 열차 불빛
+      streak(x0 + (k + .5) * cl + Math.sin(t * 1.3 + k + j) * 1.5 * U, hit + 4 * U + j * 5 * U, (cl * .7 - j * 3 * U), .13 - j * .035, "255,225,175");
+    cx.globalCompositeOperation = "source-over";
+    if (train.p > W + len * 2) { train = null; nextTrain = 30 + Math.random() * 20; }
   }
 }
 
@@ -792,9 +817,10 @@ function makeFwSnd(ctx, out) {
 }
 function fwWhistle(S, t0, dur, p, vol) {
   const c = S.ctx, o = c.createOscillator(), og = c.createGain(), vib = c.createOscillator(), vg = c.createGain();
-  o.type = "triangle"; o.frequency.setValueAtTime(700 + 200 * p, t0); o.frequency.exponentialRampToValueAtTime(2300 + 500 * p, t0 + dur * .92);
-  vib.frequency.value = 23; vg.gain.value = 28; vib.connect(vg); vg.connect(o.frequency);                         // 살짝 떨리는 휘파람
-  og.gain.setValueAtTime(0, t0); og.gain.linearRampToValueAtTime(.11 * vol, t0 + .05); og.gain.setValueAtTime(.11 * vol, t0 + dur * .55); og.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+  // 기계음처럼 들리지 않게: 순한 사인파, 좁은 음 폭, 느린 떨림, 작게 스며들었다 사라짐
+  o.type = "sine"; o.frequency.setValueAtTime(900 + 150 * p, t0); o.frequency.exponentialRampToValueAtTime(1700 + 300 * p, t0 + dur * .92);
+  vib.frequency.value = 6; vg.gain.value = 12; vib.connect(vg); vg.connect(o.frequency);
+  og.gain.setValueAtTime(0, t0); og.gain.linearRampToValueAtTime(.045 * vol, t0 + .25); og.gain.setValueAtTime(.045 * vol, t0 + dur * .5); og.gain.exponentialRampToValueAtTime(.001, t0 + dur);
   o.connect(og); og.connect(S.bus); og.connect(S.verb);
   const h = c.createBufferSource(), hf = c.createBiquadFilter(), hg = c.createGain();                              // '슈' 하는 바람
   h.buffer = S.hissBuf; hf.type = "bandpass"; hf.Q.value = 1.2; hf.frequency.setValueAtTime(1800, t0); hf.frequency.exponentialRampToValueAtTime(4500, t0 + dur);
@@ -820,19 +846,19 @@ function fwBoom(S, t0, p, vol, crackle) {
 function fwSound() {
   if (!actx || !SND.power || !started) return null;
   if (!fwSnd) fwSnd = makeFwSnd(actx, actx.destination);
-  fwSnd.bus.gain.value = curve(SND.master) * .75;                                   // 소리 패널 전체 크기를 따른다
+  fwSnd.bus.gain.value = curve(SND.master) * .6;                                   // 소리 패널 전체 크기를 따른다
   return fwSnd;
 }
 function whistle(dur, p, mine) {
   const S = fwSound(); if (!S) return;
   const now = performance.now(); if (liveWhistles >= 4 || now - lastWhistle < 120) return;    // 여러 명이 동시에 쏘면 몇 개만
   lastWhistle = now; liveWhistles++; setTimeout(() => liveWhistles--, dur * 1000);
-  fwWhistle(S, actx.currentTime + .02, dur, p, mine ? 1 : .55);
+  fwWhistle(S, actx.currentTime + .02, dur, p, mine ? 1 : .4);
 }
 function thump(p, mine, shape) {
   const S = fwSound(); if (!S) return;
   const now = performance.now(); if (now - lastThump < 140) return; lastThump = now;
-  fwBoom(S, actx.currentTime + .12, p, mine ? 1 : .6, shape === "willow" || shape === "peony");   // 소리가 빛보다 살짝 늦게
+  fwBoom(S, actx.currentTime + .12, p, mine ? 1 : .45, shape === "willow" || shape === "peony");   // 소리가 빛보다 살짝 늦게
 }
 // 달빛무지개분수: 쇼 동안 강물 녹음을 따로 하나 더 은은하게 깔았다가 빼서 물 떨어지는 느낌을 더한다
 function startFountain(ago) {
