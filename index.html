@@ -77,7 +77,7 @@ function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let
 // ---------- 화면 배치 (높이에 대한 비율) ----------
 // 하늘 | 건너편 강변(S) | 다리 상판(D)~교각 밑(P) | 물 | 이쪽 둑(B) | 산책로 | 잔디·돗자리
 const Y = { S: .36, D: .398, P: .432, B: .565, path0: .578, path1: .612 };
-let W, H, U, DPR, bg, city, cityGlow, vignette, plane = null, nextPlane = 20, clouds = [], stars = [], avi = [], cars = [], lamps = [], seats = [];
+let W, H, U, DPR, bg, city, cityGlow, dynWin = [], leds = [], shoot = null, nextShoot = 12, vignette, plane = null, nextPlane = 20, clouds = [], stars = [], avi = [], cars = [], lamps = [], seats = [];
 const moon = {};
 
 function layout() {
@@ -118,7 +118,8 @@ function drawCity() {
   const base = H * Y.S;
   let g; [city, g] = canvas(W, base + 2);
   const r = rng(21);
-  avi = [];
+  avi = []; dynWin = []; leds = [];
+  const tall = [];
   const row = (col, hMin, hMax, wMin, wMax, win, winA, lowNearHill) => {
     let x = -10 - r() * 20;
     while (x < W + 10) {
@@ -127,18 +128,23 @@ function drawCity() {
       if (lowNearHill && x > W * .1 && x < W * .34) h *= .45;
       g.fillStyle = col; g.fillRect(x, base - h, w, h + 2);
       if (h > 26 * U && r() < .3) { g.fillRect(x + w / 2 - .5 * U, base - h - 6 * U, 1 * U, 6 * U); if (r() < .7) avi.push({ x: x + w / 2, y: base - h - 6 * U, ph: r() * TAU }); }
+      if (h > 40 * U && winA > .5) tall.push({ x, w, top: base - h });
       if (r() > .12) {
         const warm = r() < .7;
         for (let wy = base - h + 3 * U; wy < base - 2 * U; wy += 4.2 * U)
-          for (let wx = x + 2.5 * U; wx < x + w - 2.5 * U; wx += 3.6 * U)
-            if (r() < win) { g.fillStyle = warm ? `rgba(255,${200 + r() * 30 | 0},${130 + r() * 40 | 0},${winA * (.6 + r() * .4)})` : `rgba(200,225,255,${winA * (.5 + r() * .4)})`; g.fillRect(wx, wy, 1.5 * U, 1.9 * U); }
+          for (let wx = x + 2.5 * U; wx < x + w - 2.5 * U; wx += 3.6 * U) {
+            const c = warm ? `255,${200 + r() * 30 | 0},${130 + r() * 40 | 0}` : "200,225,255", a = winA * (.6 + r() * .4);
+            if (winA > .5 && r() < .05 && dynWin.length < 160) { dynWin.push({ x: wx, y: wy, w: 1.5 * U, h: 1.9 * U, c, a, per: 18 + r() * 50, ph: r() * 100 }); continue; }
+            if (r() < win) { g.fillStyle = `rgba(${c},${a})`; g.fillRect(wx, wy, 1.5 * U, 1.9 * U); }
+          }
       }
+      g.fillStyle = "rgba(255,255,255,.035)"; g.fillRect(x, base - h, 1, h);
       x += w + r() * 3 * U;
     }
   };
   // 도시 불빛이 하늘에 번지는 빛
   const glow = g.createLinearGradient(0, base - 110 * U, 0, base);
-  glow.addColorStop(0, "rgba(255,160,110,0)"); glow.addColorStop(1, "rgba(255,160,110,.13)");
+  glow.addColorStop(0, "rgba(255,150,120,0)"); glow.addColorStop(1, "rgba(255,150,120,.2)");
   g.fillStyle = glow; g.fillRect(0, base - 110 * U, W, 110 * U);
   row("#232b57", 10, 46, 9, 22, .1, .35, false);
   // 남산과 N타워
@@ -160,6 +166,8 @@ function drawCity() {
   g.fillStyle = "rgba(40,25,5,.35)"; for (let y = base - gh + 10 * U; y < base; y += 2.6 * U) g.fillRect(gx, y, gw, .6 * U);
   avi.push({ x: gx + gw - 2 * U, y: base - gh - 1 * U, ph: 1 });
   row("#10153a", 8, 38, 18, 40, .3, .85, true);
+  // 색 조명 빌딩: 가장 높은 건물 몇 채의 모서리와 꼭대기에 천천히 색이 도는 LED
+  tall.sort((a, b) => a.top - b.top).filter((b, i, arr) => !arr.slice(0, i).some(o => Math.abs(o.x - b.x) < 40 * U)).slice(0, 3).forEach((b, i) => leds.push({ ...b, hue: i * 110 }));
   // 강변북로 가로등 줄
   for (let x = 2 * U; x < W; x += 7 * U) { g.fillStyle = "rgba(255,190,120,.7)"; g.fillRect(x, base - 1.6 * U, 1.2 * U, 1.2 * U); }
   cityGlow = blurred(city, 10);
@@ -172,11 +180,11 @@ function drawBg() {
   const r = rng(11), base = H * Y.S;
   // 하늘
   let gr = g.createLinearGradient(0, 0, 0, base);
-  gr.addColorStop(0, "#050816"); gr.addColorStop(.55, "#101836"); gr.addColorStop(1, "#262a52");
+  gr.addColorStop(0, "#04061a"); gr.addColorStop(.45, "#121747"); gr.addColorStop(.78, "#2c2560"); gr.addColorStop(1, "#5a3a72");
   g.fillStyle = gr; g.fillRect(0, 0, W, base + 1);
-  for (let i = 0; i < 110; i++) { const y = r() * base * .8; g.fillStyle = `rgba(255,255,255,${(.1 + r() * .35) * (1 - y / base)})`; g.fillRect(r() * W, y, .9, .9); }
+  for (let i = 0; i < 170; i++) { const y = r() * base * .8; g.fillStyle = `rgba(255,255,255,${(.1 + r() * .35) * (1 - y / base)})`; g.fillRect(r() * W, y, .9, .9); }
   stars = [];
-  for (let i = 0; i < 26; i++) stars.push({ x: r() * W, y: r() * base * .6, ph: r() * TAU, sp: .5 + r() * 1.5, s: r() < .25 ? 1.8 : 1.2 });
+  for (let i = 0; i < 40; i++) stars.push({ x: r() * W, y: r() * base * .6, ph: r() * TAU, sp: .5 + r() * 1.5, s: r() < .25 ? 1.8 : 1.2 });
   // 달
   gr = g.createRadialGradient(moon.x, moon.y, moon.r, moon.x, moon.y, moon.r * 6);
   gr.addColorStop(0, "rgba(255,240,210,.22)"); gr.addColorStop(1, "rgba(255,240,210,0)");
@@ -233,7 +241,8 @@ function makeClouds() {
 }
 
 // ---------- 움직이는 풍경 ----------
-let train = null, nextTrain = 6, boat = null, nextBoat = 14;
+let train = null, nextTrain = 6, boat = null, nextBoat = 3;
+function hsl2rgb(h) { const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (.65 - .28 * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return `${f(0)},${f(8)},${f(4)}`; }
 function streak(x, y, w, a, col) { cx.fillStyle = `rgba(${col},${a})`; cx.fillRect(x - w / 2, y, w, 1.3 * U); }
 
 function drawScene(t, dt) {
@@ -249,10 +258,33 @@ function drawScene(t, dt) {
     if (Math.sin(t * 5) > .6) { cx.fillStyle = "rgba(255,80,80,.95)"; cx.fillRect(plane.x - 3 * U, plane.y + .5, 1.6, 1.6); }
     if (plane.x > W + 10) { plane = null; nextPlane = 50 + Math.random() * 60; }
   }
+  nextShoot -= dt;
+  if (!shoot && nextShoot <= 0) shoot = { x: W * (.15 + Math.random() * .6), y: H * (.03 + Math.random() * .12), k: 0, dx: (Math.random() < .5 ? -1 : 1) * 1.6, len: (40 + Math.random() * 40) * U };
+  if (shoot) {
+    shoot.k += dt / .9;
+    const k = shoot.k, hx = shoot.x + shoot.dx * k * shoot.len, hy = shoot.y + k * shoot.len * .55;
+    const gs = cx.createLinearGradient(hx, hy, hx - shoot.dx * 30 * U, hy - 16 * U);
+    gs.addColorStop(0, `rgba(255,255,255,${.9 * (1 - k)})`); gs.addColorStop(1, "rgba(255,255,255,0)");
+    cx.strokeStyle = gs; cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(hx, hy); cx.lineTo(hx - shoot.dx * 30 * U, hy - 16 * U); cx.stroke();
+    if (k >= 1) { shoot = null; nextShoot = 25 + Math.random() * 35; }
+  }
   for (const c of clouds) { c.x += c.v * dt; if (c.x > W + 20) c.x = -c.w - 20; cx.drawImage(c.c, c.x, c.y, c.w, c.h); }
   // 도시 + 물에 비친 도시 (가로줄마다 물결에 따라 좌우로 일렁임)
   cx.drawImage(city, 0, 0, W, base + 2);
-  cx.globalCompositeOperation = "lighter"; cx.globalAlpha = .45;
+  for (const d of dynWin) {
+    const v = Math.sin((t + d.ph) * TAU / d.per), a = Math.max(0, Math.min(1, v * 3 + .5));
+    if (a > .01) { cx.fillStyle = `rgba(${d.c},${d.a * a})`; cx.fillRect(d.x, d.y, d.w, d.h); }
+  }
+  cx.globalCompositeOperation = "lighter";
+  for (const b of leds) {
+    const hue = (b.hue + t * 12) % 360;
+    cx.fillStyle = `hsla(${hue},80%,65%,.75)`; cx.fillRect(b.x, b.top, 1 * U, base - b.top); cx.fillRect(b.x + b.w - 1 * U, b.top, 1 * U, base - b.top);
+    cx.fillRect(b.x, b.top, b.w, 1.2 * U);
+    const lg = cx.createLinearGradient(0, b.top - 14 * U, 0, b.top + 4 * U); lg.addColorStop(0, `hsla(${hue},80%,65%,0)`); lg.addColorStop(1, `hsla(${hue},80%,65%,.22)`);
+    cx.fillStyle = lg; cx.fillRect(b.x - 6 * U, b.top - 14 * U, b.w + 12 * U, 18 * U);
+    for (let k = 0; k < 7; k++) streak(b.x + b.w / 2 + Math.sin(t * .9 + k * 1.7) * 1.5 * U, base + 3 * U + k * 4.5 * U, (b.w * .7 - k * 1.5 * U) * (.6 + .4 * Math.abs(Math.sin(t * 1.3 + k))), .16 - k * .02, `${hsl2rgb(hue)}`);
+  }
+  cx.globalAlpha = .45;
   cx.drawImage(cityGlow, 0, 0, W, base + 2);
   cx.save(); cx.translate(0, base); cx.scale(1, -1.15); cx.globalAlpha = .22; cx.drawImage(cityGlow, 0, -base, W, base + 2); cx.restore();
   cx.globalCompositeOperation = "source-over";
@@ -260,7 +292,7 @@ function drawScene(t, dt) {
   for (let y = base; y < bY; y += 2) {
     const d = y - base, sy = base - d * 1.15 - 2;
     if (sy < 0) break;
-    const off = Math.sin(t * 1.3 + y * .45) * (.4 + d * .05) * U + Math.sin(t * .7 + y * .13) * d * .02 * U;
+    const off = Math.sin(t * .8 + y * .45) * (.4 + d * .05) * U + Math.sin(t * .45 + y * .13) * d * .02 * U;
     cx.drawImage(city, 0, sy * DPR, W * DPR, 2 * DPR, off, y, W, 2);
   }
   cx.globalAlpha = 1;
@@ -301,40 +333,56 @@ function drawScene(t, dt) {
   }
 }
 
-// 아치 다리: 교각 사이 아치가 물에 비쳐 동그라미처럼 보인다
+// 다리와 달빛무지개분수: 상판 옆에서 물줄기가 무지개색으로 쏟아지고 물에 비친다 (50초 켜짐, 20초 쉼)
 function drawBridge(t, dt, dY, pY, bY) {
-  const span = Math.min(95 * U, Math.max(64 * U, W / 6.5)), x0 = (W % span) / 2 - span;
-  const arch = (sign, alpha, wob) => {
-    for (let x = x0; x < W + span; x += span) {
-      const o = wob ? Math.sin(t * 1.5 + x) * 1.2 * U : 0;
-      cx.beginPath(); cx.moveTo(x + 3 * U + o, pY); cx.quadraticCurveTo(x + span / 2 + o, pY - sign * (pY - dY) * 1.7, x + span - 3 * U + o, pY);
-      cx.strokeStyle = `rgba(255,214,160,${alpha})`; cx.lineWidth = 1.3 * U; cx.stroke();
+  const span = Math.min(80 * U, Math.max(56 * U, W / 6)), x0 = (W % span) / 2 - span, hit = pY + 3 * U;
+  const cyc = t % 70, fade = cyc < 50 ? Math.min(1, cyc / 3, (50 - cyc) / 3) : 0;
+  // 교각
+  cx.fillStyle = "#090d22";
+  for (let x = x0; x < W + span; x += span) { cx.fillRect(x - 3.5 * U, dY, 7 * U, hit - dY); cx.fillRect(x - 5 * U, dY + 2 * U, 10 * U, 2 * U); }
+  // 분수
+  if (fade > 0) {
+    const n = Math.ceil(W / (5.5 * U));
+    cx.globalCompositeOperation = "lighter"; cx.lineCap = "round";
+    for (let pass = 0; pass < 2; pass++) {                          // 0: 물줄기, 1: 물에 비친 물줄기
+      for (let i = 0; i <= n; i++) {
+        const x = i * 5.5 * U, hue = (t * 25 + i * 6) % 360, sway = Math.sin(t * 1.7 + i * .45);
+        const len = (hit - dY - 3 * U) * (.92 + .08 * sway), out = (5 + 2 * sway) * U;
+        const sy = dY + 3 * U, ey = sy + len;
+        cx.strokeStyle = `hsla(${hue},95%,${pass ? 60 : 70}%,${(pass ? .12 : .36) * fade})`;
+        cx.lineWidth = (pass ? 1.6 : 1.2) * U;
+        cx.beginPath();
+        if (!pass) { cx.moveTo(x, sy); cx.quadraticCurveTo(x + out, sy + len * .15, x + out * .8, ey); }
+        else { const w = Math.sin(t * 1.4 + i) * 1.5 * U; cx.moveTo(x + out * .8 + w, hit + (hit - ey) * -1 * .2); cx.quadraticCurveTo(x + out + w, hit + len * .75, x + w * .5, hit + len * 1.1); }
+        cx.stroke();
+      }
     }
-  };
-  // 물에 비친 아치와 조명
-  arch(-1, .16, true);
-  const n = Math.floor(W / (10 * U));
-  for (let i = 0; i <= n; i++) {
-    const x = i * 10 * U, hue = 205 + 55 * Math.sin(t * .15 + i * .06);
-    for (let k = 0; k < 4; k++) {
-      const a = (.18 - k * .04) * (.5 + .5 * Math.abs(Math.sin(t * 2 + i * .7 + k)));
-      cx.fillStyle = `hsla(${hue},60%,72%,${a})`; cx.fillRect(x - U + Math.sin(t * 1.4 + k + i) * U, pY + 3 * U + k * 5 * U, 2.2 * U, 1.2 * U);
+    // 물이 떨어지는 곳의 물보라와 색 번짐
+    for (let k = 0; k < 8; k++) {
+      const x = k * W / 8, hue = (t * 25 + (x / (5.5 * U)) * 6) % 360;
+      const g = cx.createLinearGradient(0, hit - 10 * U, 0, hit + 26 * U);
+      g.addColorStop(0, `hsla(${hue},90%,65%,0)`); g.addColorStop(.3, `hsla(${hue},90%,65%,${.2 * fade})`); g.addColorStop(1, `hsla(${hue},90%,65%,0)`);
+      cx.fillStyle = g; cx.fillRect(x, hit - 10 * U, W / 8 + 1, 36 * U);
     }
+    for (let k = 0; k < 40; k++) {
+      const x = ((k * 97.13 + t * 13) % W), y = hit - Math.abs(Math.sin(t * 3 + k)) * 5 * U;
+      cx.fillStyle = `rgba(255,255,255,${.5 * fade})`; cx.fillRect(x, y, 1, 1);
+    }
+    cx.globalCompositeOperation = "source-over";
   }
-  // 교각, 아치, 상판
-  for (let x = x0; x < W + span; x += span) { cx.fillStyle = "#0a0f26"; cx.fillRect(x - 3 * U, dY, 6 * U, pY - dY + 1); }
-  cx.fillStyle = "#0a0f26";
-  for (let x = x0; x < W + span; x += span) { cx.beginPath(); cx.moveTo(x, pY); cx.quadraticCurveTo(x + span / 2, pY - (pY - dY) * 1.7, x + span, pY); cx.lineTo(x + span, pY - 2 * U); cx.quadraticCurveTo(x + span / 2, pY - (pY - dY) * 1.7 - 2 * U, x, pY - 2 * U); cx.fill(); }
-  arch(1, .5, false);
-  cx.fillStyle = "#0b1028"; cx.fillRect(0, dY - 4 * U, W, 6 * U);
-  const bh = 205 + 55 * Math.sin(t * .15 + 1.5), band = cx.createLinearGradient(0, dY - 6 * U, 0, dY + 10 * U);
-  band.addColorStop(0, `hsla(${bh},60%,70%,0)`); band.addColorStop(.5, `hsla(${bh},60%,70%,.13)`); band.addColorStop(1, `hsla(${bh},60%,70%,0)`);
-  cx.globalCompositeOperation = "lighter"; cx.fillStyle = band; cx.fillRect(0, dY - 6 * U, W, 16 * U); cx.globalCompositeOperation = "source-over";
-  for (let i = 0; i <= n; i++) {
+  // 상판, 상판 아래 조명, 가로등
+  cx.fillStyle = "#0b1028"; cx.fillRect(0, dY - 4 * U, W, 7 * U);
+  cx.fillStyle = "rgba(255,255,255,.06)"; cx.fillRect(0, dY - 4 * U, W, 1);
+  const n2 = Math.floor(W / (10 * U));
+  for (let i = 0; i <= n2; i++) {
     const hue = 205 + 55 * Math.sin(t * .15 + i * .06);
-    cx.fillStyle = `hsla(${hue},60%,74%,${.6 + .3 * Math.sin(t * 1.1 + i * .4)})`; cx.fillRect(i * 10 * U - .9 * U, dY + 1 * U, 1.8 * U, 1.4 * U);
+    cx.fillStyle = `hsla(${hue},60%,74%,${.6 + .3 * Math.sin(t * 1.1 + i * .4)})`; cx.fillRect(i * 10 * U - .9 * U, dY + 1.4 * U, 1.8 * U, 1.2 * U);
   }
-  for (let x = 20 * U; x < W; x += 40 * U) { cx.fillStyle = "#151a35"; cx.fillRect(x, dY - 11 * U, .8 * U, 7 * U); cx.fillStyle = "rgba(255,225,170,.95)"; cx.fillRect(x - .6 * U, dY - 12 * U, 2 * U, 1.4 * U); }
+  for (let x = 20 * U; x < W; x += 40 * U) {
+    cx.fillStyle = "#151a35"; cx.fillRect(x, dY - 11 * U, .8 * U, 7 * U);
+    cx.fillStyle = "rgba(255,225,170,.95)"; cx.fillRect(x - .6 * U, dY - 12 * U, 2 * U, 1.4 * U);
+    if (fade < .5) for (let k = 0; k < 4; k++) streak(x + Math.sin(t * 1.2 + k + x) * U, hit + 3 * U + k * 4 * U, (4 - k * .6) * U, .16 - k * .035, "255,220,160");
+  }
   // 지하철
   nextTrain -= dt;
   if (!train && nextTrain <= 0) train = { dir: Math.random() < .5 ? -1 : 1, p: 0 };
@@ -345,39 +393,71 @@ function drawBridge(t, dt, dY, pY, bY) {
     cx.fillStyle = "#1e2548"; cx.fillRect(Math.min(head, tail), dY - 10 * U, len, 6 * U);
     cx.fillStyle = "rgba(225,240,255,.9)";
     for (let k = 0; k < 6; k++) for (let w = 0; w < 4; w++) cx.fillRect(head - dir * (k * len / 6 + 3 * U + w * 5.5 * U) - 1.5 * U, dY - 8.6 * U, 3 * U, 2.4 * U);
-    cx.fillStyle = "rgba(225,240,255,.12)"; cx.fillRect(Math.min(head, tail) + Math.sin(t * 2) * 2 * U, pY + 10 * U, len, 1.5 * U);
     if (train.p > W + len * 2) { train = null; nextTrain = 25 + Math.random() * 30; }
   }
 }
 
-// 유람선: 2층 선실, 줄전구, 물결 자국과 반영
+// 유람선: 3층 선실 불빛, 줄전구, 파란 선체 조명, 물에 길게 늘어지는 반사. 아주 천천히 지나간다
 function drawBoat(t, dt) {
   nextBoat -= dt;
   if (!boat && nextBoat <= 0) boat = { dir: Math.random() < .5 ? 1 : -1, p: 0 };
   if (!boat) return;
-  boat.p += dt * 15 * U;
-  const d = boat.dir, by = H * .505, bx = d > 0 ? -45 * U + boat.p : W + 45 * U - boat.p;
-  // 물결 자국
-  cx.strokeStyle = "rgba(200,215,255,.12)"; cx.lineWidth = 1;
-  for (let k = 1; k < 5; k++) { cx.beginPath(); cx.moveTo(bx - d * 34 * U, by); cx.lineTo(bx - d * (34 + k * 18) * U, by - 1 * U + k * 1.6 * U); cx.stroke(); }
-  // 반영
-  for (let k = 0; k < 5; k++) streak(bx + Math.sin(t * 2.4 + k) * 2 * U, by + (2 + k * 3.2) * U, (50 - k * 8) * U, .2 - k * .035, "255,215,150");
-  // 선체
-  cx.fillStyle = "#e8e4dc"; cx.beginPath(); cx.moveTo(bx - 38 * U, by - 7 * U); cx.lineTo(bx + 38 * U, by - 7 * U); cx.lineTo(bx + d * 32 * U + (d > 0 ? 0 : 0), by); cx.lineTo(bx - d * 30 * U, by); cx.closePath(); cx.fill();
-  cx.fillStyle = "#1c2244"; cx.fillRect(bx - 38 * U, by - 3.5 * U, 76 * U, 1.2 * U);
-  cx.fillStyle = "#d9d4ca"; cx.fillRect(bx - 28 * U, by - 15 * U, 56 * U, 8 * U); cx.fillRect(bx - 18 * U, by - 21 * U, 36 * U, 6 * U);
-  cx.fillStyle = "rgba(255,214,140,.95)";
-  for (let k = -6; k <= 6; k++) cx.fillRect(bx + k * 4.2 * U - 1.4 * U, by - 13.2 * U, 2.8 * U, 3.6 * U);
-  for (let k = -3; k <= 3; k++) cx.fillRect(bx + k * 4.6 * U - 1.4 * U, by - 19.6 * U, 2.8 * U, 2.8 * U);
-  // 줄전구
-  const mast = { x: bx, y: by - 30 * U };
-  cx.fillStyle = "#cfcac0"; cx.fillRect(mast.x - .5 * U, mast.y, 1 * U, 9 * U);
-  const bulbs = ["255,120,120", "255,220,120", "140,220,255", "170,255,170"];
-  for (const end of [bx - 38 * U, bx + 38 * U]) for (let k = 1; k < 9; k++) {
-    const q = k / 9, x = mast.x + (end - mast.x) * q, y = mast.y + (by - 7 * U - mast.y) * q + Math.sin(q * Math.PI) * 2 * U;
-    cx.fillStyle = `rgba(${bulbs[k % 4]},${.6 + .4 * Math.sin(t * 3 + k)})`; cx.fillRect(x - .8 * U, y - .8 * U, 1.6 * U, 1.6 * U);
+  boat.p += dt * 9 * U;
+  const d = boat.dir, L = 150 * U, by = H * .54, bx = d > 0 ? -L * .6 + boat.p : W + L * .6 - boat.p;
+  const left = bx - L / 2, right = bx + L / 2, bow = d > 0 ? right : left, stern = d > 0 ? left : right;
+  // 물에 비친 모습 (선실 불빛이 세로로 길게 일렁임)
+  cx.globalCompositeOperation = "lighter";
+  for (let k = 0; k < 10; k++) {
+    const y = by + 2 * U + k * 3.2 * U, a = .2 * (1 - k / 10);
+    for (let j = 0; j < 9; j++) {
+      const x = left + L * (.12 + j * .095) + Math.sin(t * 1.1 + k * .9 + j) * (1 + k * .3) * U;
+      streak(x, y, (6 - k * .35) * U, a, j % 3 ? "255,210,140" : "255,190,120");
+    }
+    streak(bx + Math.sin(t + k) * 2 * U, y + 1.5 * U, L * (.8 - k * .05), a * .25, "120,170,255");
   }
-  if (boat.p > W + 90 * U) { boat = null; nextBoat = 50 + Math.random() * 50; }
+  const gl = cx.createRadialGradient(bx, by - 14 * U, 0, bx, by - 14 * U, L * .55);
+  gl.addColorStop(0, "rgba(255,200,130,.16)"); gl.addColorStop(1, "rgba(255,200,130,0)");
+  cx.fillStyle = gl; cx.fillRect(bx - L * .55, by - 40 * U, L * 1.1, 46 * U);
+  cx.globalCompositeOperation = "source-over";
+  // 뱃머리 물결
+  cx.lineWidth = 1;
+  for (let k = 1; k < 5; k++) { cx.strokeStyle = `rgba(210,225,255,${.14 - k * .025})`; cx.beginPath(); cx.moveTo(stern, by - .5 * U); cx.lineTo(stern - d * k * 7 * U, by + k * 1.4 * U); cx.stroke(); }
+  // 선체
+  cx.fillStyle = "#f1eee8";
+  cx.beginPath(); cx.moveTo(stern, by - 10 * U); cx.lineTo(bow + d * 6 * U, by - 10 * U); cx.lineTo(bow - d * 2 * U, by); cx.lineTo(stern + d * 2 * U, by); cx.closePath(); cx.fill();
+  cx.fillStyle = "#1d2a5c"; cx.fillRect(Math.min(stern, bow), by - 4 * U, L, 2.4 * U);
+  cx.fillStyle = "rgba(110,170,255,.9)"; cx.fillRect(Math.min(stern, bow), by - 1.8 * U, L, .9 * U);
+  // 1층·2층·3층 선실
+  const decks = [[.92, 9, 13], [.72, 8, 21], [.45, 6, 27]];
+  for (const [wr, h, top] of decks) {
+    const w = L * wr, x = bx - w / 2 - d * (1 - wr) * L * .12;
+    cx.fillStyle = "#e7e3db"; cx.fillRect(x, by - top * U, w, h * U);
+    cx.fillStyle = "rgba(0,0,0,.08)"; cx.fillRect(x, by - top * U + (h - 1) * U, w, 1 * U);
+    const cnt = Math.floor(w / (4.6 * U));
+    for (let k = 0; k < cnt; k++) {
+      const flick = .85 + .15 * Math.sin(t * .7 + k * 2.1 + top);
+      cx.fillStyle = `rgba(255,${205 + (k % 3) * 12},${130 + (k % 4) * 10},${flick})`;
+      cx.fillRect(x + 1.5 * U + k * 4.6 * U, by - top * U + 1.8 * U, 3.2 * U, (h - 3.6) * U);
+    }
+  }
+  // 맨 위 난간, 조타실
+  cx.fillStyle = "#d6d1c7"; cx.fillRect(bx - L * .2, by - 30 * U, L * .4, 1 * U);
+  for (let x = bx - L * .2; x <= bx + L * .2; x += 3 * U) cx.fillRect(x, by - 30 * U, .5 * U, 3 * U);
+  cx.fillStyle = "#e7e3db"; cx.fillRect(bx + d * L * .05 - 6 * U, by - 35 * U, 12 * U, 6 * U);
+  cx.fillStyle = "rgba(140,200,255,.9)"; cx.fillRect(bx + d * L * .05 - 5 * U, by - 34 * U, 10 * U, 2.4 * U);
+  // 돛대와 줄전구 (뱃머리·고물까지)
+  const mx = bx + d * L * .05, my = by - 48 * U;
+  cx.fillStyle = "#cfcac0"; cx.fillRect(mx - .5 * U, my, 1 * U, 13 * U);
+  cx.fillStyle = "rgba(255,90,80,.95)"; if (Math.sin(t * 3) > 0) cx.fillRect(mx - 1 * U, my - 1.6 * U, 2 * U, 2 * U);
+  const bulbs = ["255,110,120", "255,215,110", "120,210,255", "160,255,170", "230,150,255"];
+  cx.globalCompositeOperation = "lighter";
+  for (const end of [bow + d * 5 * U, stern]) for (let k = 1; k < 16; k++) {
+    const q = k / 16, x = mx + (end - mx) * q, y = my + (by - 10 * U - my) * q + Math.sin(q * Math.PI) * 4 * U;
+    const a = .55 + .45 * Math.sin(t * 2.4 + k * .9);
+    cx.fillStyle = `rgba(${bulbs[k % 5]},${a})`; cx.beginPath(); cx.arc(x, y, .9 * U, 0, TAU); cx.fill();
+  }
+  cx.globalCompositeOperation = "source-over";
+  if (boat.p > W + L * 1.3) { boat = null; nextBoat = 35 + Math.random() * 30; }
 }
 
 // 돗자리. 비어 있으면 은은하게 빛나며 눌러 달라고 한다
