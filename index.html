@@ -41,9 +41,9 @@
 <div id="emo" class="pill"></div>
 <div id="gate"><div class="box">
   <h1>밤 한강 돗자리</h1>
-  <p id="gateMsg">강물 소리 들으며 잠깐 앉았다 가요.<br>여기 앉은 사람들은 모두 지금 접속한 사람이에요.</p>
+  <p id="gateMsg">조용한 강변에 잠깐 앉았다 가요.<br>여기 앉은 사람들은 모두 지금 접속한 사람이에요.</p>
   <button id="go">돗자리 펴기</button>
-  <small>강물 소리가 나와요. 말은 못 하고 이모지만 보낼 수 있어요.</small>
+  <small>잔잔한 물소리와 은은한 울림이 작게 나와요. 말은 못 하고 이모지만 보낼 수 있어요.</small>
 </div></div>
 
 <script>
@@ -525,64 +525,85 @@ function buildEmoji(list) {
 }
 
 // ---------- 소리 ----------
-// SYNTH-START (test_sound.js가 이 부분을 잘라서 수치를 잰다)
-// 강물 찰랑임이 주인공. 바람은 300Hz~1.4kHz 산들바람으로 아주 작게, 가끔 먼 귀뚜라미.
-// 32초 고리 + 끝 4초를 앞에 겹쳐 이음매 없이 반복한다.
-const MIX = { lap: 1, plip: 1, wind: .065, cricket: 1 };
+// SYNTH-START
+// 조용한 가운데 가끔 은은한 울림. 넓은 대역 잡음(바람)은 쓰지 않는다.
+// 층: 멀리서 울리는 싱잉볼(14~26초마다, 약 12초에 걸쳐 사라짐) · 돌 둑에 닿는 작은 물방울 무리(찰랑)
+//     · 아주 옅은 물결 바탕(500Hz~2kHz, 거의 안 들림) · 먼 풀벌레 · 가끔 물방울 '톡'
+// 사건은 64초 고리 안에서 끝을 처음으로 감아 넣어 이음매가 없다.
+const MIX = { bowl: 1, lap: 1, bed: 1, cricket: 1, plip: 1 };
 function synth(SR, LEN, FADE, G) {
   const N = (LEN + FADE) * SR, M = LEN * SR, F = FADE * SR, r = rng(3);
   const A = f => 1 - Math.exp(-TAU * f / SR);
-  const out = [new Float32Array(N), new Float32Array(N)];
-  for (let c = 0; c < 2; c++) {
-    const o = out[c], env = new Float32Array(N);
-    for (let tt = 0; tt < LEN + FADE;) {           // 물결 하나하나의 크기 곡선
-      const at = tt * SR | 0, amp = .4 + r() * .6, att = (.15 + r() * .2) * SR, dec = (.35 + r() * .5) * SR;
-      for (let i = 0; i < att + dec * 5 && at + i < N; i++) env[at + i] += amp * (i < att ? Math.sin(i / att * Math.PI / 2) : Math.exp(-(i - att) / dec));
-      tt += .5 + r() * 1.1;
+  const L = new Float32Array(N), R = new Float32Array(N);
+  const put = (i, l, rr) => { const k = i % M; L[k] += l; R[k] += rr; };
+  // 물결 바탕: 500Hz~2kHz 잡음을 3~6초 간격의 느린 부풂으로, 아주 작게
+  for (const o of [L, R]) {
+    const env = new Float32Array(N);
+    for (let tt = 0; tt < LEN + FADE;) {
+      const at = tt * SR | 0, amp = .5 + r() * .5, att = (.8 + r() * .6) * SR, dec = (1.2 + r()) * SR;
+      for (let i = 0; i < att + dec * 4 && at + i < N; i++) env[at + i] += amp * (i < att ? .5 - .5 * Math.cos(Math.PI * i / att) : Math.exp(-(i - att) / dec));
+      tt += 3 + r() * 3;
     }
-    const a250 = A(250), a900 = A(900), a1k = A(1200), a3k = A(3000), a300 = A(300), a1400 = A(1400);
-    let h1 = 0, l1 = 0, l2 = 0, s1 = 0, s2 = 0, b0 = 0, b1 = 0, b2 = 0, wh = 0, w1 = 0, w2 = 0;
+    const a5 = A(500), a2k = A(2000);
+    let h1 = 0, h2 = 0, l1 = 0, l2 = 0;
     for (let i = 0; i < N; i++) {
-      const n = r() * 2 - 1, ts = i / SR, e = env[i];
-      h1 += (n - h1) * a250; l1 += (n - h1 - l1) * a900; l2 += (l1 - l2) * a900;      // 250~900Hz 물소리
-      s1 += (n - s1) * a3k; s2 += (s1 - s2) * a1k;                                       // 1.2~3kHz 물튀김
-      const lap = l2 * e * 1.6 + (s1 - s2) * e * e * e * .12;
-      b0 = .99886 * b0 + n * .0555179; b1 = .99332 * b1 + n * .0750759; b2 = .969 * b2 + n * .153852;
-      const pink = (b0 + b1 + b2 + n * .5362) * .2;
-      wh += (pink - wh) * a300; w1 += (pink - wh - w1) * a1400; w2 += (w1 - w2) * a1400;  // 300Hz~1.4kHz 바람
-      const breeze = .82 + .1 * Math.sin(TAU * ts / 16 + c * 2) + .08 * Math.sin(TAU * ts / 8 + c);
-      o[i] = G.lap * lap + G.wind * w2 * breeze * 4;
+      const n = r() * 2 - 1;
+      h1 += (n - h1) * a5; const x = n - h1; h2 += (x - h2) * a5; const y = x - h2;
+      l1 += (y - l1) * a2k; l2 += (l1 - l2) * a2k;
+      o[i] = G.bed * l2 * env[i] * .03;
     }
-    // 80Hz 아래 웅웅거림 제거
-    let hp = 0; const a80 = A(80);
-    for (let i = 0; i < N; i++) { hp += (o[i] - hp) * a80; o[i] -= hp; }
     for (let i = 0; i < F; i++) { const k = i / F; o[i] = o[i] * k + o[M + i] * (1 - k); }
-    // 물방울 '톡': 1.5~4초마다, 위로 살짝 올라가는 짧은 울림
-    for (let tt = r() * 2; tt < LEN; tt += 1.5 + r() * 2.5) {
-      const at = tt * SR | 0, f = 650 + r() * 550, amp = (.05 + r() * .05) * G.plip;
-      let ph = 0;
-      for (let k = 0; k < .12 * SR; k++) { ph += TAU * f * (1 + k / SR * 4) / SR; o[(at + k) % M] += amp * Math.sin(ph) * Math.exp(-k / (.022 * SR)) * Math.min(1, k / 40); }
-    }
-    // 먼 귀뚜라미: 3~7초마다 4.2kHz 짧은 떨림 3~5번, 한쪽에 치우쳐 작게
-    for (let tt = r() * 3; tt < LEN; tt += 3 + r() * 4) {
-      const at = tt * SR | 0, pulses = 3 + (r() * 3 | 0), amp = .015 * G.cricket * (c ? .6 : 1);
-      for (let p = 0; p < pulses; p++) for (let k = 0; k < .03 * SR; k++) {
-        const w = Math.sin(Math.PI * k / (.03 * SR));
-        o[(at + p * .05 * SR + k | 0) % M] += amp * w * Math.sin(TAU * 4200 * k / SR);
+    o.fill(0, M);
+  }
+  // 싱잉볼: 비조화 배음 4개, 배음마다 두 줄을 살짝 어긋나게 해 천천히 일렁이게
+  const NOTES = [440, 523.25, 587.33, 659.25];
+  const PART = [[1, 1, 3], [2.76, .5, 2], [5.4, .18, 1.1], [8.9, .06, .6]];   // [배음비, 크기, 감쇠 시간(초)]
+  for (let tt = 2 + r() * 3; tt < LEN; tt += 14 + r() * 12) {
+    const at = tt * SR | 0, f0 = NOTES[r() * NOTES.length | 0], amp = (.035 + r() * .015) * G.bowl, pan = (r() - .5) * .4;
+    for (const [ratio, pa, tau] of PART) {
+      const f = f0 * ratio, beat = .4 + r() * .5, len = Math.min(15, tau * 5) * SR | 0, tail = len * .8;
+      for (let k = 0; k < len; k++) {
+        const t = k / SR, atk = Math.min(1, k / (.02 * SR));
+        const e = amp * pa * atk * Math.exp(-t / tau) * (k < tail ? 1 : .5 + .5 * Math.cos(Math.PI * (k - tail) / (len - tail)));
+        const a = Math.sin(TAU * f * t), b = Math.sin(TAU * (f + beat) * t + 1);
+        put(at + k, e * (a * .6 + b * .4) * (1 - pan), e * (a * .4 + b * .6) * (1 + pan));
       }
     }
   }
-  return { L: out[0].subarray(0, M), R: out[1].subarray(0, M), M };
+  // 찰랑: 2.5~6초마다 작은 물방울 6~14개가 0.5초 안에 (400~1300Hz, 위로 살짝 올라가며 짧게)
+  const bubble = (at, f, amp, pan, tau) => {
+    let ph = 0;
+    for (let k = 0; k < tau * 6 * SR; k++) {
+      ph += TAU * f * (1 + k / SR * 5) / SR;
+      const v = amp * Math.sin(ph) * Math.exp(-k / (tau * SR)) * Math.min(1, k / 30);
+      put(at + k, v * (1 - pan), v * (1 + pan));
+    }
+  };
+  for (let tt = r() * 2; tt < LEN; tt += 2.5 + r() * 3.5) {
+    const cnt = 6 + (r() * 9 | 0), pan = (r() - .5) * 1.2;
+    for (let j = 0; j < cnt; j++) bubble((tt + r() * .5) * SR | 0, 400 + r() * 900, (.016 + r() * .028) * G.lap, pan + (r() - .5) * .3, .012 + r() * .02);
+  }
+  // 가끔 물방울 '톡'
+  for (let tt = 1 + r() * 4; tt < LEN; tt += 5 + r() * 6) bubble(tt * SR | 0, 700 + r() * 500, (.03 + r() * .02) * G.plip, (r() - .5) * .8, .025);
+  // 먼 풀벌레: 3~7초마다 4~4.5kHz 짧은 떨림 3~5번
+  for (let tt = r() * 3; tt < LEN; tt += 3 + r() * 4) {
+    const at = tt * SR | 0, pulses = 3 + (r() * 3 | 0), f = 4000 + r() * 500, amp = .0045 * G.cricket, pan = r() < .5 ? -.5 : .5;
+    for (let p = 0; p < pulses; p++) for (let k = 0; k < .03 * SR; k++) {
+      const v = amp * Math.sin(Math.PI * k / (.03 * SR)) * Math.sin(TAU * f * k / SR);
+      put(at + (p * .05 * SR | 0) + k, v * (1 - pan), v * (1 + pan));
+    }
+  }
+  return { L: L.subarray(0, M), R: R.subarray(0, M), M };
 }
 // SYNTH-END
 const audio = new Audio(); audio.loop = true; let soundOn = false;
 function makeSound() {
-  const SR = 22050, { L, R, M } = synth(SR, 32, 4, MIX);
+  const SR = 22050, { L, R, M } = synth(SR, 64, 4, MIX);
   let peak = 0; for (let i = 0; i < M; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
   const buf = new DataView(new ArrayBuffer(44 + M * 4)), w = (o, s) => [...s].forEach((ch, i) => buf.setUint8(o + i, ch.charCodeAt(0)));
   w(0, "RIFF"); buf.setUint32(4, 36 + M * 4, true); w(8, "WAVEfmt "); buf.setUint32(16, 16, true); buf.setUint16(20, 1, true); buf.setUint16(22, 2, true);
   buf.setUint32(24, SR, true); buf.setUint32(28, SR * 4, true); buf.setUint16(32, 4, true); buf.setUint16(34, 16, true); w(36, "data"); buf.setUint32(40, M * 4, true);
-  const g = .8 / peak;
+  const g = .35 / peak;   // 피크 -9dBFS: 작게 시작해서 사용자가 올려 듣게
   for (let i = 0; i < M; i++) { buf.setInt16(44 + i * 4, L[i] * g * 32767, true); buf.setInt16(46 + i * 4, R[i] * g * 32767, true); }
   audio.src = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
 }
@@ -592,7 +613,7 @@ $("snd").onclick = () => { if (!audio.src) makeSound(); setSound(!soundOn); };
 $("go").onclick = () => {
   $("gate").classList.add("off");
   makeSound(); setSound(true);
-  if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: "밤 한강 돗자리", artist: "강물 소리" });
+  if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: "밤 한강 돗자리", artist: "잔잔한 물소리" });
   connect();
 };
 fetch("/stats").then(r => r.json()).then(s => { if (s.total) $("gateMsg").innerHTML = `지금 <b>${s.total}명</b>이 한강에 나와 있어요.<br>여기 있는 사람들은 모두 지금 접속한 사람이에요.`; }).catch(() => {});
