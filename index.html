@@ -24,8 +24,18 @@
   #top { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 16px; right: 16px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
   #top > * { pointer-events: auto; padding: 8px 14px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
   #top button { all: unset; cursor: pointer; font-size: 16px; line-height: 1; }
-  #emo { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); display: flex; gap: 2px; padding: 6px; opacity: 0; transition: opacity .6s; }
-  #emo.on { opacity: 1; }
+  #acts { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(14px, env(safe-area-inset-bottom)); display: flex; gap: 2px; padding: 5px; max-width: calc(100vw - 24px); overflow-x: auto; scrollbar-width: none; opacity: 0; transition: opacity .6s; }
+  #acts::-webkit-scrollbar { display: none; }
+  #acts.more { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+  #acts.on { opacity: 1; }
+  #acts button { all: unset; cursor: pointer; flex: 0 0 auto; min-width: 48px; height: 48px; padding: 0 4px; display: grid; place-items: center; align-content: center; gap: 1px; border-radius: 16px; font-size: 20px; line-height: 1; transition: background .15s, transform .15s; }
+  #acts button span { font-size: 10.5px; color: var(--dim); }
+  #acts button.sel { background: rgba(243,217,164,.2); }
+  #acts button.sel span { color: var(--ink); }
+  #acts button:active { transform: scale(.9); }
+  #acts .sep { flex: 0 0 1px; background: var(--line); margin: 8px 2px; }
+  #emo { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px); display: none; gap: 2px; padding: 6px; }
+  #emo.open { display: flex; }
   #emo button { all: unset; cursor: pointer; font-size: 24px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; transition: transform .15s, background .15s; }
   #emo button:active { transform: scale(.85); background: rgba(255,255,255,.12); }
   #emo button.cool { opacity: .35; }
@@ -64,6 +74,7 @@
   <small>강물만 켜 두는 걸 추천해요. 설정은 이 기기에 저장돼요.</small>
 </div>
 <div id="emo" class="pill"></div>
+<div id="acts" class="pill"></div>
 <div id="gate"><div class="box">
   <h1>밤 한강 돗자리</h1>
   <p id="gateMsg">조용한 강변에 잠깐 앉았다 가요.<br>여기 앉은 사람들은 모두 지금 접속한 사람이에요.</p>
@@ -498,7 +509,7 @@ function standSpot(id) { return { x: W * (.1 + ((id * .618034) % 1) * .8), y: pa
 const seatTaken = i => [...chars.values()].some(c => c.seat === i && c.state !== "leave");
 
 function addChar(u, walk) {
-  const c = { id: u.id, color: u.color, hair: HAIR[u.id % HAIR.length], style: (u.id * 7) % 5, prop: (u.id * 13) % 7, seat: u.seat, emo: [], phase: Math.random() * 6, born: performance.now() };
+  const c = { id: u.id, color: u.color, hair: HAIR[u.id % HAIR.length], style: (u.id * 7) % 5, prop: (u.id * 13) % 7, act: u.act || "sit", waveUntil: 0, seat: u.seat, emo: [], phase: Math.random() * 6, born: performance.now() };
   const spot = u.seat == null ? standSpot(u.id) : seats[u.seat];
   if (walk) {
     const fromLeft = spot.x < W / 2 ? Math.random() < .8 : Math.random() < .2;
@@ -535,60 +546,132 @@ function stepChar(c, dt) {
   }
 }
 
-// 뒤에서 본 2등신 캐릭터
+// 뒤에서 본 2등신 캐릭터. 앉아 있으면 고른 행동(c.act)에 따라 자세가 바뀐다
 function drawChar(c, t) {
   const s = scaleAt(c.y), x = c.x, moving = c.path.length > 0, upright = c.state !== "sit";
-  const bob = moving ? Math.abs(Math.sin(t * 9 + c.phase)) * 2.2 * s : Math.sin(t * 1.2 + c.phase) * .6 * s;
+  const now = performance.now(), act = c.state === "sit" && !moving ? c.act || "sit" : "sit", ph = c.phase;
+  const waving = c.waveUntil > now && act !== "lie";
+  const bob = moving ? Math.abs(Math.sin(t * 9 + ph)) * 2.2 * s : Math.sin(t * 1.2 + ph) * .6 * s;
   const y = c.y - bob;
-  cx.fillStyle = "rgba(0,0,0,.28)"; cx.beginPath(); cx.ellipse(x, c.y + 3 * s, 13 * s, 4 * s, 0, 0, TAU); cx.fill();
-  if (upright) {
-    const sw = moving ? Math.sin(t * 9 + c.phase) * 4 * s : 0;
-    cx.strokeStyle = "#2b2f3d"; cx.lineWidth = 3.4 * s; cx.lineCap = "round";
-    cx.beginPath(); cx.moveTo(x - 3.5 * s, y - 8 * s); cx.lineTo(x - 3.5 * s + sw * .4, c.y + 1 * s); cx.moveTo(x + 3.5 * s, y - 8 * s); cx.lineTo(x + 3.5 * s - sw * .4, c.y + 1 * s); cx.stroke();
+  cx.fillStyle = "rgba(0,0,0,.28)"; cx.beginPath(); cx.ellipse(x, c.y + 3 * s, act === "lie" ? 22 * s : 13 * s, 4 * s, 0, 0, TAU); cx.fill();
+  let hx, hy;
+  if (act === "lie") {
+    // 돗자리에 누워 하늘 보기: 다리는 왼쪽, 머리는 오른쪽, 숨 쉬듯 배가 오르내림
+    const br = 1 + .05 * Math.sin(t * 1.3 + ph);
+    cx.fillStyle = "#2b2f3d"; cx.beginPath(); cx.ellipse(x - 15 * s, c.y - 2 * s, 8 * s, 3.4 * s, -.05, 0, TAU); cx.fill();
+    cx.fillStyle = c.color; cx.beginPath(); cx.ellipse(x, c.y - 3.5 * s, 12 * s, 5 * s * br, 0, 0, TAU); cx.fill();
+    cx.fillStyle = "rgba(0,0,10,.2)"; cx.beginPath(); cx.ellipse(x, c.y - 1.5 * s, 12 * s, 2.5 * s, 0, 0, TAU); cx.fill();
+    hx = x + 15 * s; hy = c.y - 6 * s;
+    cx.fillStyle = "#e9c4a3"; cx.beginPath(); cx.arc(hx + 2 * s, hy - 7 * s, 2.2 * s, 0, TAU); cx.fill();
+    cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy, 9.5 * s, 8.5 * s, 0, 0, TAU); cx.fill();
+    if (c.style === 3) { cx.fillStyle = c.color; cx.beginPath(); cx.ellipse(hx + 3 * s, hy, 7 * s, 8 * s, 0, -Math.PI / 2, Math.PI / 2); cx.fill(); }
+    cx.strokeStyle = "rgba(255,220,170,.22)"; cx.lineWidth = 1.2 * s; cx.beginPath(); cx.arc(hx, hy, 8.6 * s, Math.PI * 1.1, Math.PI * 1.6); cx.stroke();
+    hy -= 6 * s;
+  } else {
+    if (upright) {
+      const sw = moving ? Math.sin(t * 9 + ph) * 4 * s : 0;
+      cx.strokeStyle = "#2b2f3d"; cx.lineWidth = 3.4 * s; cx.lineCap = "round";
+      cx.beginPath(); cx.moveTo(x - 3.5 * s, y - 8 * s); cx.lineTo(x - 3.5 * s + sw * .4, c.y + 1 * s); cx.moveTo(x + 3.5 * s, y - 8 * s); cx.lineTo(x + 3.5 * s - sw * .4, c.y + 1 * s); cx.stroke();
+    }
+    const stretchK = act === "stretch" ? (1 - Math.cos(t * 1.4 + ph)) / 2 : 0;
+    const bodyTop = y - (upright ? 26 : 18) * s - stretchK * 2 * s, bodyBot = y - (upright ? 7 : 0) * s, bw = (upright ? 10 : 13) * s;
+    const shL = { x: x - 8.5 * s, y: bodyTop + 4 * s }, shR = { x: x + 8.5 * s, y: bodyTop + 4 * s };
+    if (act === "star") { arm(c, shL, { x: x - 16 * s, y: c.y }, s); arm(c, shR, { x: x + 16 * s, y: c.y }, s); }   // 뒤로 손 짚기
+    if (act === "chicken") drawChicken(x - 18 * s, c.y + 1 * s, s);
+    cx.fillStyle = c.color;
+    cx.beginPath();
+    cx.moveTo(x - 9 * s, bodyTop + 3 * s); cx.quadraticCurveTo(x, bodyTop - 2 * s, x + 9 * s, bodyTop + 3 * s);
+    cx.lineTo(x + bw, bodyBot); cx.quadraticCurveTo(x, bodyBot + 3 * s, x - bw, bodyBot); cx.closePath(); cx.fill();
+    cx.fillStyle = "rgba(0,0,0,.12)"; cx.beginPath(); cx.ellipse(x, bodyTop + 4 * s, 7 * s, 3 * s, 0, 0, TAU); cx.fill();
+    const shade = cx.createLinearGradient(x - bw, 0, x + bw, 0); shade.addColorStop(0, "rgba(255,225,180,.1)"); shade.addColorStop(.5, "rgba(0,0,0,0)"); shade.addColorStop(1, "rgba(0,0,10,.28)");
+    cx.fillStyle = shade; cx.beginPath(); cx.moveTo(x - 9 * s, bodyTop + 3 * s); cx.quadraticCurveTo(x, bodyTop - 2 * s, x + 9 * s, bodyTop + 3 * s);
+    cx.lineTo(x + bw, bodyBot); cx.quadraticCurveTo(x, bodyBot + 3 * s, x - bw, bodyBot); cx.closePath(); cx.fill();
+    hy = bodyTop - 9 * s + (c.state === "sit" ? Math.sin(t * .4 + ph) * .4 * s : 0);
+    hx = x + (c.state === "sit" ? Math.sin(t * .3 + ph * 2) * .8 * s : 0);
+    if (act === "star") hy -= 1.5 * s;
+    if (act === "doze") hy += Math.max(0, Math.sin(t * .9 + ph)) ** 6 * 4 * s;          // 꾸벅
+    if (act === "ramen") hy += Math.max(0, Math.sin(t * 1.6 + ph)) ** 6 * 2.4 * s;      // 후루룩
+    const bite = act === "chicken" && Math.sin(t * .8 + ph) > .55;
+    if (act === "chicken" && Math.sin(t * .8 + ph + .6) > .9) hy += 1.5 * s;
+    if (act === "stretch") { const k = stretchK; arm(c, shL, { x: hx - (10 + 6 * k) * s, y: hy - (2 + 15 * k) * s }, s); arm(c, shR, { x: hx + (10 + 6 * k) * s, y: hy - (2 + 15 * k) * s }, s); }   // 머리 뒤로 팔 올리기
+    drawHead(c, hx, hy, s, t, act === "star" ? .9 : 1);
+    // 팔
+    if (act === "chicken" && bite) arm(c, shL, { x: x - 17 * s, y: c.y - 3 * s }, s);
+    if (act === "photo" || waving) {
+      const hand = waving ? { x: x + 13 * s + Math.sin(now / 90) * 3 * s, y: hy - 10 * s } : { x: hx + 14 * s, y: hy - 12 * s };
+      arm(c, shR, hand, s);
+      if (act === "photo" && !waving) {
+        cx.fillStyle = "#23262e"; cx.fillRect(hand.x - 2.2 * s, hand.y - 7 * s, 4.4 * s, 7.5 * s);
+        cx.fillStyle = "#555a66"; cx.beginPath(); cx.arc(hand.x - .8 * s, hand.y - 5.6 * s, .7 * s, 0, TAU); cx.fill();
+        if ((t + ph) % 5 < .15) {                                                             // 찰칵
+          const g = cx.createRadialGradient(hand.x, hand.y - 5 * s, 0, hand.x, hand.y - 5 * s, 22 * s); g.addColorStop(0, "rgba(255,255,255,.85)"); g.addColorStop(1, "rgba(255,255,255,0)");
+          cx.globalCompositeOperation = "lighter"; cx.fillStyle = g; cx.fillRect(hand.x - 22 * s, hand.y - 27 * s, 44 * s, 44 * s); cx.globalCompositeOperation = "source-over";
+        }
+      }
+    }
+    // 소품과 표시
+    if (act === "ramen") {
+      cx.strokeStyle = "#c8a27a"; cx.lineWidth = .8 * s;
+      cx.beginPath(); cx.moveTo(hx + 7 * s, hy + 4 * s); cx.lineTo(hx + 12 * s, hy - 8 * s); cx.moveTo(hx + 8.5 * s, hy + 4 * s); cx.lineTo(hx + 14 * s, hy - 7 * s); cx.stroke();
+      cx.strokeStyle = "rgba(255,255,255,.22)"; cx.lineWidth = 1 * s;
+      for (let k = 0; k < 3; k++) { const p = (t * .4 + k / 3) % 1; cx.globalAlpha = Math.sin(p * Math.PI); cx.beginPath(); cx.moveTo(hx - 4 * s + k * 4 * s, hy - 11 * s - p * 4 * s); cx.quadraticCurveTo(hx - 2 * s + k * 4 * s + Math.sin(t * 2 + k) * 2 * s, hy - 15 * s - p * 8 * s, hx - 4 * s + k * 4 * s, hy - 18 * s - p * 12 * s); cx.stroke(); }
+      cx.globalAlpha = 1;
+    }
+    if (act === "doze") {
+      cx.font = `600 ${Math.max(9, 8 * s)}px sans-serif`; cx.textAlign = "center";
+      for (let k = 0; k < 3; k++) { const p = (t * .3 + k / 3) % 1; cx.fillStyle = `rgba(220,230,255,${.7 * Math.sin(p * Math.PI)})`; cx.fillText("z", hx + (8 + p * 8) * s, hy - (10 + p * 16) * s); }
+    }
+    if (act === "star") for (let k = 0; k < 2; k++) {
+      const p = (t * .25 + k * .5 + ph) % 1, a = Math.sin(p * Math.PI) * .8, sx = hx + (k ? 10 : -9) * s, sy = hy - (22 + k * 6) * s, r = 2.4 * s;
+      cx.strokeStyle = `rgba(255,240,200,${a})`; cx.lineWidth = .8 * s; cx.beginPath(); cx.moveTo(sx - r, sy); cx.lineTo(sx + r, sy); cx.moveTo(sx, sy - r); cx.lineTo(sx, sy + r); cx.stroke();
+    }
   }
-  const bodyTop = y - (upright ? 26 : 18) * s, bodyBot = y - (upright ? 7 : 0) * s, bw = (upright ? 10 : 13) * s;
-  cx.fillStyle = c.color;
-  cx.beginPath();
-  cx.moveTo(x - 9 * s, bodyTop + 3 * s); cx.quadraticCurveTo(x, bodyTop - 2 * s, x + 9 * s, bodyTop + 3 * s);
-  cx.lineTo(x + bw, bodyBot); cx.quadraticCurveTo(x, bodyBot + 3 * s, x - bw, bodyBot); cx.closePath(); cx.fill();
-  cx.fillStyle = "rgba(0,0,0,.12)"; cx.beginPath(); cx.ellipse(x, bodyTop + 4 * s, 7 * s, 3 * s, 0, 0, TAU); cx.fill();
-  // 몸 그늘과 가로등 쪽 테두리 빛
-  const shade = cx.createLinearGradient(x - bw, 0, x + bw, 0); shade.addColorStop(0, "rgba(255,225,180,.1)"); shade.addColorStop(.5, "rgba(0,0,0,0)"); shade.addColorStop(1, "rgba(0,0,10,.28)");
-  cx.fillStyle = shade; cx.beginPath(); cx.moveTo(x - 9 * s, bodyTop + 3 * s); cx.quadraticCurveTo(x, bodyTop - 2 * s, x + 9 * s, bodyTop + 3 * s);
-  cx.lineTo(x + bw, bodyBot); cx.quadraticCurveTo(x, bodyBot + 3 * s, x - bw, bodyBot); cx.closePath(); cx.fill();
-  const hy = bodyTop - 9 * s + (c.state === "sit" ? Math.sin(t * .4 + c.phase) * .4 * s : 0);
-  const hx = x + (c.state === "sit" ? Math.sin(t * .3 + c.phase * 2) * .8 * s : 0);
-  if (c.style === 4) { cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy + 8 * s, 11 * s, 13 * s, 0, 0, TAU); cx.fill(); }   // 긴 머리
-  cx.fillStyle = "#e9c4a3"; cx.beginPath(); cx.arc(hx - 11.5 * s, hy + 2 * s, 2.4 * s, 0, TAU); cx.arc(hx + 11.5 * s, hy + 2 * s, 2.4 * s, 0, TAU); cx.fill();
-  cx.fillStyle = c.hair; cx.beginPath(); cx.arc(hx, hy, 12 * s, 0, TAU); cx.fill();
-  if (c.style === 2) {                                                                                                                    // 묶은 머리
-    cx.beginPath(); cx.ellipse(hx + Math.sin(t * .8 + c.phase) * .5 * s, hy + 13 * s, 3.4 * s, 6 * s, 0, 0, TAU); cx.fill();
-    cx.strokeStyle = "rgba(255,255,255,.1)"; cx.lineWidth = .8 * s; cx.beginPath(); cx.arc(hx, hy, 7 * s, Math.PI * .3, Math.PI * .7); cx.stroke();
-  }
-  if (c.style === 3) {                                                                                                                    // 비니
-    cx.fillStyle = c.color; cx.beginPath(); cx.arc(hx, hy - 1 * s, 12.6 * s, Math.PI, TAU); cx.fill();
-    cx.fillStyle = "rgba(0,0,0,.18)"; cx.fillRect(hx - 12.6 * s, hy - 2 * s, 25.2 * s, 3.4 * s);
-    cx.fillStyle = "#f2efe8"; cx.beginPath(); cx.arc(hx, hy - 13.5 * s, 3 * s, 0, TAU); cx.fill();
-  }
-  cx.strokeStyle = "rgba(255,220,170,.22)"; cx.lineWidth = 1.2 * s; cx.beginPath(); cx.arc(hx, hy, 11.4 * s, Math.PI * 1.05, Math.PI * 1.55); cx.stroke();
-  cx.fillStyle = "rgba(255,255,255,.06)"; cx.beginPath(); cx.arc(hx - 4 * s, hy - 5 * s, 4 * s, 0, TAU); cx.fill();
-  if (c.state === "sit") drawProp(c, t, s);
+  if (c.state === "sit" && act !== "lie" && act !== "chicken") drawProp(c, t, s);
   if (c.id === me) {
-    const label = c.state !== "sit" || performance.now() - (c.sat || 0) < 6000;
+    const label = c.state !== "sit" || now - (c.sat || 0) < 6000;
     cx.fillStyle = `rgba(243,217,164,${label ? 1 : .45})`;
     const ay = hy - 19 * s + Math.sin(t * 3) * 1.5 * s;
-    cx.beginPath(); cx.moveTo(x - 4 * s, ay - 5 * s); cx.lineTo(x + 4 * s, ay - 5 * s); cx.lineTo(x, ay); cx.fill();
-    if (label) { cx.font = `600 ${Math.max(11, 10 * s)}px sans-serif`; cx.textAlign = "center"; cx.fillText("나", x, ay - 8 * s); }
+    cx.beginPath(); cx.moveTo(hx - 4 * s, ay - 5 * s); cx.lineTo(hx + 4 * s, ay - 5 * s); cx.lineTo(hx, ay); cx.fill();
+    if (label) { cx.font = `600 ${Math.max(11, 10 * s)}px sans-serif`; cx.textAlign = "center"; cx.fillText("나", hx, ay - 8 * s); }
   }
-  const now = performance.now();
   c.emo = c.emo.filter(e => now - e.at < 2600);
   for (const e of c.emo) {
     const k = (now - e.at) / 2600;
     cx.globalAlpha = k < .1 ? k * 10 : 1 - Math.max(0, k - .6) / .4;
     cx.font = `${Math.max(18, 20 * s)}px serif`; cx.textAlign = "center";
-    cx.fillText(e.e, x + Math.sin(k * 6 + e.at) * 3 * s, hy - 18 * s - k * 34 * s);
+    cx.fillText(e.e, hx + Math.sin(k * 6 + e.at) * 3 * s, hy - 18 * s - k * 34 * s);
     cx.globalAlpha = 1;
   }
+}
+function arm(c, a, b, s) {
+  cx.strokeStyle = c.color; cx.lineWidth = 3.6 * s; cx.lineCap = "round";
+  cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke();
+  cx.strokeStyle = "rgba(0,0,10,.15)"; cx.lineWidth = 1.2 * s; cx.beginPath(); cx.moveTo(a.x + .8 * s, a.y + .8 * s); cx.lineTo(b.x + .8 * s, b.y + .8 * s); cx.stroke();
+  cx.fillStyle = "#e9c4a3"; cx.beginPath(); cx.arc(b.x, b.y, 1.9 * s, 0, TAU); cx.fill();
+}
+function drawHead(c, hx, hy, s, t, sq) {
+  if (c.style === 4) { cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy + 8 * s, 11 * s, 13 * s, 0, 0, TAU); cx.fill(); }   // 긴 머리
+  cx.fillStyle = "#e9c4a3"; cx.beginPath(); cx.arc(hx - 11.5 * s, hy + 2 * s, 2.4 * s, 0, TAU); cx.arc(hx + 11.5 * s, hy + 2 * s, 2.4 * s, 0, TAU); cx.fill();
+  cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy, 12 * s, 12 * s * sq, 0, 0, TAU); cx.fill();
+  if (c.style === 2) {                                                                                                                    // 묶은 머리
+    cx.beginPath(); cx.ellipse(hx + Math.sin(t * .8 + c.phase) * .5 * s, hy + 13 * s, 3.4 * s, 6 * s, 0, 0, TAU); cx.fill();
+    cx.strokeStyle = "rgba(255,255,255,.1)"; cx.lineWidth = .8 * s; cx.beginPath(); cx.arc(hx, hy, 7 * s, Math.PI * .3, Math.PI * .7); cx.stroke();
+  }
+  if (c.style === 3) {                                                                                                                    // 비니
+    cx.fillStyle = c.color; cx.beginPath(); cx.ellipse(hx, hy - 1 * s, 12.6 * s, 12.6 * s * sq, 0, Math.PI, TAU); cx.fill();
+    cx.fillStyle = "rgba(0,0,0,.18)"; cx.fillRect(hx - 12.6 * s, hy - 2 * s, 25.2 * s, 3.4 * s);
+    cx.fillStyle = "#f2efe8"; cx.beginPath(); cx.arc(hx, hy - 13.5 * s * sq, 3 * s, 0, TAU); cx.fill();
+  }
+  cx.strokeStyle = "rgba(255,220,170,.22)"; cx.lineWidth = 1.2 * s; cx.beginPath(); cx.arc(hx, hy, 11.4 * s, Math.PI * 1.05, Math.PI * 1.55); cx.stroke();
+  cx.fillStyle = "rgba(255,255,255,.06)"; cx.beginPath(); cx.arc(hx - 4 * s, hy - 5 * s, 4 * s, 0, TAU); cx.fill();
+}
+// 치킨 상자: 빨강·흰 줄무늬 상자에 닭다리
+function drawChicken(px, py, s) {
+  cx.fillStyle = "#f4efe6"; cx.fillRect(px - 5 * s, py - 6 * s, 10 * s, 6 * s);
+  cx.fillStyle = "#d4473c"; for (let k = 0; k < 3; k++) cx.fillRect(px - 5 * s + k * 3.6 * s, py - 6 * s, 1.6 * s, 6 * s);
+  cx.fillStyle = "#c27a35"; cx.beginPath(); cx.ellipse(px - 1 * s, py - 7 * s, 3 * s, 2 * s, -.4, 0, TAU); cx.fill();
+  cx.beginPath(); cx.ellipse(px + 2.4 * s, py - 7.4 * s, 2.6 * s, 1.8 * s, .3, 0, TAU); cx.fill();
+  cx.fillStyle = "#f4efe6"; cx.fillRect(px + 4 * s, py - 9 * s, 1.6 * s, 1 * s);
 }
 // 앉아 있을 때 옆에 두는 것: 컵라면, 캔, 캠핑 랜턴, 휴대폰 불빛 (없는 사람이 절반쯤)
 function drawProp(c, t, s) {
@@ -672,12 +755,14 @@ function connect() {
       $("roomName").textContent = roomLabel(m.room);
       for (const u of m.users) addChar(u, u.id === me);
       $("cnt").textContent = m.users.length;
-      if (!emojis.length) buildEmoji(m.emojis);
+      if (!emojis.length) { buildEmoji(m.emojis); buildActs(); }
+      syncActs();
     } else if (m.t === "join") addChar(m.user, true);
     else if (m.t === "seat") goSeat(m.id, m.seat);
     else if (m.t === "taken") toast("앗, 방금 다른 분이 먼저 앉았어요", 2500);
     else if (m.t === "leave") removeChar(m.id);
-    else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) c.emo.push({ e: m.e, at: performance.now() }); }
+    else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
+    else if (m.t === "act") { const c = chars.get(m.id); if (c) c.act = m.a; }
     else if (m.t === "count") $("cnt").textContent = m.room;
     else if (m.t === "full") { toast(m.why === "ip" ? "이 기기에서 너무 많이 접속했어요" : "지금 모든 강변이 꽉 찼어요", 0); retry = 99; }
   };
@@ -690,6 +775,29 @@ function connect() {
   };
 }
 
+// 돗자리 위 행동 (server.js ACTS와 같아야 함). 같은 걸 다시 누르면 그냥 앉기로
+const ACTS = [["sit", "🧘", "앉기"], ["lie", "🛌", "눕기"], ["star", "🌟", "별 보기"], ["ramen", "🍜", "라면"], ["chicken", "🍗", "치킨"], ["photo", "📸", "사진"], ["stretch", "🙆", "기지개"], ["doze", "😪", "꾸벅"]];
+function buildActs() {
+  const bar = $("acts");
+  const eb = document.createElement("button"); eb.innerHTML = "😊<span>이모지</span>"; eb.onclick = () => $("emo").classList.toggle("open");
+  bar.appendChild(eb);
+  const sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
+  for (const [id, icon, name] of ACTS) {
+    const b = document.createElement("button"); b.dataset.act = id; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", name);
+    b.onclick = () => {
+      const c = chars.get(me);
+      if (!c || c.state !== "sit" && !(c.state === "walk" && c.then === "sit")) return toast("먼저 빈 돗자리를 눌러 앉아 주세요", 2500);
+      const a = c.act === id ? "sit" : id;
+      c.act = a; syncActs();
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "act", a }));
+    };
+    bar.appendChild(b);
+  }
+  bar.classList.add("on"); syncActs();
+  const more = () => bar.classList.toggle("more", bar.scrollWidth - bar.clientWidth - bar.scrollLeft > 4);   // 오른쪽에 버튼이 더 있으면 흐리게
+  bar.addEventListener("scroll", more); addEventListener("resize", more); more();
+}
+function syncActs() { const c = chars.get(me), a = c ? c.act : "sit"; $("acts").querySelectorAll("button[data-act]").forEach(b => b.classList.toggle("sel", b.dataset.act === a)); }
 function buildEmoji(list) {
   emojis = list; const bar = $("emo");
   for (const e of list) {
@@ -697,13 +805,13 @@ function buildEmoji(list) {
     b.onclick = () => {
       if (bar.dataset.cool) return;
       if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "emo", e }));
-      const c = chars.get(me); if (c) c.emo.push({ e, at: performance.now() });
+      const c = chars.get(me); if (c) { c.emo.push({ e, at: performance.now() }); if (e === "👋") c.waveUntil = performance.now() + 2400; }
+      $("emo").classList.remove("open");
       bar.dataset.cool = 1; bar.querySelectorAll("button").forEach(x => x.classList.add("cool"));
       setTimeout(() => { delete bar.dataset.cool; bar.querySelectorAll("button").forEach(x => x.classList.remove("cool")); }, 1300);
     };
     bar.appendChild(b);
   }
-  bar.classList.add("on");
 }
 
 // ---------- 소리 ----------
@@ -761,7 +869,7 @@ function buildMixer() {
 }
 buildMixer();
 $("snd").onclick = () => $("mixer").classList.toggle("on");
-cv.addEventListener("pointerdown", () => $("mixer").classList.remove("on"));
+cv.addEventListener("pointerdown", () => { $("mixer").classList.remove("on"); $("emo").classList.remove("open"); });
 $("snd").style.display = "none";
 fetch("amb-river.mp3", { method: "HEAD" }).then(r => {
   if (!r.ok) return;

@@ -13,6 +13,8 @@ const EMOJIS = ["🌙", "✨", "🍜", "👋", "💤", "❤️"];
 const COLORS = ["#e9a87c", "#8fb8de", "#b8d98f", "#e6c76f", "#d79bc4", "#9fd6cf", "#f0f0ea", "#c9a6f2", "#f29b9b", "#7fa3c9"];
 const EMO_GAP = 1200;        // 이모지 최소 간격(ms)
 const SIT_GAP = 600;         // 자리 옮기기 최소 간격(ms)
+const ACTS = ["sit", "lie", "star", "ramen", "chicken", "photo", "stretch", "doze"];   // 돗자리 위 행동
+const ACT_GAP = 400;
 
 const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const ogImage = fs.readFileSync(path.join(__dirname, "og.jpg"));
@@ -68,7 +70,7 @@ function pickRoom() {
   if (!r && rooms.length < MAX_ROOMS) { r = { no: rooms.length + 1, users: new Map() }; rooms.push(r); }
   return r;
 }
-const pub = u => ({ id: u.id, seat: u.seat, color: u.color });
+const pub = u => ({ id: u.id, seat: u.seat, color: u.color, act: u.act });
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 function broadcast(room, msg, except) {
   const s = JSON.stringify(msg);
@@ -90,7 +92,7 @@ wss.on("connection", (ws, req) => {
   const from = (/[?&]from=([\w-]{1,20})/.exec(req.url) || [, "direct"])[1], since = Date.now();
   day.visits++; day.people.add(ipKey(ip)); day.sources[from] = (day.sources[from] || 0) + 1;
 
-  const u = { id: nextId++, seat: null, color: COLORS[Math.floor(Math.random() * COLORS.length)], ws, lastEmo: 0, lastSit: 0 };
+  const u = { id: nextId++, seat: null, color: COLORS[Math.floor(Math.random() * COLORS.length)], ws, lastEmo: 0, lastSit: 0, act: "sit", lastAct: 0 };
   room.users.set(u.id, u);
   ws.alive = true;
   send(ws, { t: "init", you: u.id, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub) });
@@ -107,6 +109,11 @@ wss.on("connection", (ws, req) => {
       if (now - u.lastEmo < EMO_GAP) return;
       u.lastEmo = now;
       broadcast(room, { t: "emo", id: u.id, e: m.e });
+    } else if (m.t === "act" && ACTS.includes(m.a) && m.a !== u.act) {
+      const now = Date.now();
+      if (now - u.lastAct < ACT_GAP) return;
+      u.lastAct = now; u.act = m.a;
+      broadcast(room, { t: "act", id: u.id, a: u.act });
     } else if (m.t === "sit" && Number.isInteger(m.seat) && m.seat >= 0 && m.seat < CAP && m.seat !== u.seat) {
       const now = Date.now();
       if (now - u.lastSit < SIT_GAP) return;
