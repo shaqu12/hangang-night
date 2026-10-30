@@ -819,13 +819,13 @@ function buildEmoji(list) {
 // 크기는 Web Audio 게인으로 조절한다(아이폰은 audio.volume을 무시하므로). 파일은 켠 것만 내려받는다.
 // 파일은 모두 -24 LUFS로 맞춰 두었고, 기본값(전체 60, 강물 70)이면 약 -39 LUFS로 아주 작게 나온다.
 const TRACKS = [
-  { id: "river", name: "🌊 강물", vol: 70, on: true },
+  { id: "river", name: "🌊 강물", vol: 60, on: true },
   { id: "city", name: "🏙️ 도시", vol: 35, on: false },
   { id: "crick", name: "🦗 풀벌레", vol: 35, on: false },
 ];
 const SND = { master: 60, power: true };
-try { const v = JSON.parse(localStorage.getItem("hn-sound") || "null"); if (v) { SND.master = v.master; SND.power = v.power; TRACKS.forEach(t => { if (v[t.id]) { t.vol = v[t.id].vol; t.on = v[t.id].on; } }); } } catch {}
-function saveSnd() { try { const v = { master: SND.master, power: SND.power }; TRACKS.forEach(t => v[t.id] = { vol: t.vol, on: t.on }); localStorage.setItem("hn-sound", JSON.stringify(v)); } catch {} }
+try { const v = JSON.parse(localStorage.getItem("hn-sound2") || "null"); if (v) { SND.master = v.master; SND.power = v.power; TRACKS.forEach(t => { if (v[t.id]) { t.vol = v[t.id].vol; t.on = v[t.id].on; } }); } } catch {}
+function saveSnd() { try { const v = { master: SND.master, power: SND.power }; TRACKS.forEach(t => v[t.id] = { vol: t.vol, on: t.on }); localStorage.setItem("hn-sound2", JSON.stringify(v)); } catch {} }
 let actx = null, masterGain = null, started = false, hasSound = false;
 const curve = v => (v / 100) ** 2;
 function ensureCtx() {
@@ -840,7 +840,7 @@ function applySound() {
   for (const t of TRACKS) {
     const play = SND.power && t.on;
     if (play && !t.el) {
-      t.el = new Audio("amb-" + t.id + ".mp3"); t.el.loop = true;
+      t.el = new Audio("amb-" + t.id + ".mp3?v=2"); t.el.loop = true;
       if (actx) { t.gain = actx.createGain(); actx.createMediaElementSource(t.el).connect(t.gain); t.gain.connect(masterGain); }
     }
     if (!t.el) continue;

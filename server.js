@@ -25,7 +25,7 @@ const server = http.createServer((req, res) => {
     return res.end(JSON.stringify({ total: total(), rooms: rooms.map(r => r.users.size), today: summary(day), yesterday: prevDay && summary(prevDay) }, null, 1));
   }
   if (req.url === "/og.jpg") { res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "public, max-age=86400" }); return res.end(ogImage); }
-  const am = /^\/(amb-(?:river|city|crick)\.mp3)$/.exec(req.url);
+  const am = /^\/(amb-(?:river|city|crick)\.mp3)(?:\?v=\d+)?$/.exec(req.url);
   if (am) return sendAudio(req, res, path.join(__dirname, am[1]));
   // 카카오톡·인스타 링크 미리보기는 이미지 주소가 절대 주소여야 해서 요청한 주소를 넣어 준다
   const origin = (req.headers["x-forwarded-proto"] || "http") + "://" + (req.headers["x-forwarded-host"] || req.headers.host);
