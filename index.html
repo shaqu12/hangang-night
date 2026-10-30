@@ -24,6 +24,9 @@
   #top { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 16px; right: 16px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
   #top > * { pointer-events: auto; padding: 8px 14px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
   #top button { all: unset; cursor: pointer; font-size: 16px; line-height: 1; }
+  #top #snd { font-size: 15px; padding: 8px 12px; margin: -4px -8px -4px 0; border-radius: 999px; background: rgba(243,217,164,.16); border: 1px solid rgba(243,217,164,.35); }
+  #mixer input[type=range] { height: 28px; }
+  #mixer .head button { font-size: 15px; padding: 8px 14px; }
   #acts { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(14px, env(safe-area-inset-bottom)); display: flex; gap: 2px; padding: 5px; max-width: calc(100vw - 24px); overflow-x: auto; scrollbar-width: none; opacity: 0; transition: opacity .6s; }
   #acts::-webkit-scrollbar { display: none; }
   #acts.more { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
@@ -63,21 +66,23 @@
   #gate button { all: unset; cursor: pointer; padding: 14px 30px; border-radius: 999px; background: #f3d9a4; color: #1b1a22; font-weight: 700; font-size: 16px; }
   #gate small { display: block; margin-top: 18px; color: var(--dim); font-size: 12px; }
   #nickRow { display: flex; gap: 6px; justify-content: center; margin: 0 auto; width: min(260px, 100%); }
-  #nickRow input, #nickBox input { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--ink); font: inherit; font-size: 16px; text-align: center; outline: none; }
+  #nickRow input, #nickBox input, #wishBox input { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--ink); font: inherit; font-size: 16px; text-align: center; outline: none; }
   #nickRow input:focus, #nickBox input:focus { border-color: rgba(243,217,164,.6); }
-  #nickRow button, #nickBox button { all: unset; cursor: pointer; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 16px; display: grid; place-items: center; min-height: 40px; }
+  #nickRow button, #nickBox button, #wishBox button { all: unset; cursor: pointer; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 16px; display: grid; place-items: center; min-height: 40px; }
   #gate small.nickHint { margin: 8px 0 22px; }
-  #nickBox { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); width: min(300px, calc(100vw - 32px)); padding: 16px; border-radius: 20px; display: none; flex-direction: column; gap: 12px; font-size: 14px; text-align: center; }
-  #nickBox.on { display: flex; }
-  #nickBox > div { display: flex; gap: 6px; }
-  #nickBox .btns button { flex: 1; font-size: 14px; color: var(--dim); }
-  #nickBox .btns button.on { background: #f3d9a4; color: #1b1a22; font-weight: 700; border-color: transparent; }
+  #wishBox small { color: var(--dim); font-size: 12px; }
+  #rest { color: var(--dim); font-size: 12px; }
+  #nickBox, #wishBox { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); width: min(300px, calc(100vw - 32px)); padding: 16px; border-radius: 20px; display: none; flex-direction: column; gap: 12px; font-size: 14px; text-align: center; }
+  #nickBox.on, #wishBox.on { display: flex; }
+  #nickBox > div, #wishBox > div { display: flex; gap: 6px; }
+  #nickBox .btns button, #wishBox .btns button { flex: 1; font-size: 14px; color: var(--dim); }
+  #nickBox .btns button.on, #wishBox .btns button.on { background: #f3d9a4; color: #1b1a22; font-weight: 700; border-color: transparent; }
 </style>
 </head>
 <body>
 <canvas id="cv"></canvas>
 <div id="top">
-  <div class="pill">🌉 <span id="roomName">한강</span></div>
+  <div class="pill">🌉 <span><span id="roomName">한강</span><small id="rest"></small></span></div>
   <div class="pill"><span>👤 <b id="cnt">0</b></span><button id="snd" aria-label="소리">🔈</button></div>
 </div>
 <div id="toast" class="pill"></div>
@@ -85,11 +90,12 @@
   <div class="head"><span>소리</span><button id="mxPower" class="on">켜짐</button></div>
   <div class="row"><span>전체 크기</span><input type="range" id="mxMaster" min="0" max="100" aria-label="전체 크기"></div>
   <div id="mxTracks"></div>
-  <small>강물만 켜 두는 걸 추천해요. 설정은 이 기기에 저장돼요.</small>
+  <small>폭죽 소리만 끄고 강물 소리는 남길 수 있어요. 설정은 이 기기에 저장돼요.</small>
 </div>
 <div id="emo" class="pill"></div>
 <div id="acts" class="pill"></div>
 <div id="fwInfo" class="pill"></div>
+<div id="wishBox" class="pill"><b>🏮 소원 풍등</b><small>한 줄 소원을 적으면 모두에게 잠깐 보여요 (15자, 비워도 돼요)</small><div><input id="wishEd" maxlength="15" autocomplete="off" enterkeyhint="send" aria-label="소원" placeholder="예: 내일은 푹 자기"></div><div class="btns"><button id="wishCancel">닫기</button><button id="wishSend" class="on">띄우기</button></div></div>
 <div id="nickBox" class="pill"><b>닉네임 바꾸기</b><div><input id="nickEd" maxlength="5" autocomplete="off" enterkeyhint="done" aria-label="새 닉네임"><button id="nickEdDice" aria-label="다른 이름">🎲</button></div><div class="btns"><button id="nickCancel">닫기</button><button id="nickSave" class="on">바꾸기</button></div></div>
 <div id="gate"><div class="box">
   <h1>밤 한강 돗자리</h1>
@@ -802,6 +808,8 @@ function seatAt(px, py) {
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
   if (!aiming && onMyChar(e.clientX, e.clientY)) return openNickBox();                  // 내 캐릭터(이름표)를 누르면 닉네임 바꾸기
+  const other = !aiming && charAt(e.clientX, e.clientY);
+  if (other) return sendHeart(other.id);                                                 // 다른 사람을 누르면 하트
   if (aiming || !canPick()) return;
   const i = seatAt(e.clientX, e.clientY);
   if (i < 0 || seatTaken(i)) return;
@@ -819,7 +827,7 @@ const FW_SHAPES = ["peony", "ring", "willow", "double", "heart"];   // server.js
 const FW_HUES = ["255,214,120", "255,110,110", "255,140,210", "190,140,255", "120,220,255", "150,255,160", "255,250,240"];   // server.js FW_COLORS
 const FW_MAX = 900, FW_GAP = 2500;
 const rockets = [], bursts = [], fwLabels = [];
-let fwParts = 0, aiming = false, aim = null, lastFwSent = 0, fwFlash = 0, lastThump = 0;
+let fwParts = 0, aiming = false, aim = null, lastFwSent = -1e9, fwFlash = 0, lastThump = 0;
 const FW_KEY = "hn-fw", today = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 let fwToday = 0;
 try { const v = JSON.parse(localStorage.getItem(FW_KEY) || "null"); if (v && v.d === today()) fwToday = v.n; } catch {}
@@ -868,7 +876,7 @@ function makeFwSnd(ctx, out) {
   const bus = ctx.createGain(); bus.connect(comp); comp.connect(out);
   const ir = ctx.createBuffer(2, sr * 2.6 | 0, sr);                                 // 강 위로 넓게 퍼지는 잔향
   for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sr * .55)) * (i < sr * .02 ? i / (sr * .02) : 1); }
-  const verb = ctx.createConvolver(); verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .45; verb.connect(wet); wet.connect(bus);
+  const verb = ctx.createConvolver(); verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .14; verb.connect(wet); wet.connect(bus);
   const dly = ctx.createDelay(1); dly.delayTime.value = .33; const fb = ctx.createGain(); fb.gain.value = .38; const dlp = ctx.createBiquadFilter(); dlp.type = "lowpass"; dlp.frequency.value = 900;
   dly.connect(dlp); dlp.connect(fb); fb.connect(dly); const echo = ctx.createGain(); echo.gain.value = .55; dlp.connect(echo); echo.connect(bus);   // 메아리: 갈수록 먹먹하게
   return { ctx, bus, verb, dly, boomBuf: noise(1.6, .28), hissBuf: noise(2), crackBuf: noise(.03, .004) };
@@ -878,33 +886,38 @@ function fwWhistle(S, t0, dur, p, vol) {
   // 기계음처럼 들리지 않게: 순한 사인파, 좁은 음 폭, 느린 떨림, 작게 스며들었다 사라짐
   o.type = "sine"; o.frequency.setValueAtTime(900 + 150 * p, t0); o.frequency.exponentialRampToValueAtTime(1700 + 300 * p, t0 + dur * .92);
   vib.frequency.value = 6; vg.gain.value = 12; vib.connect(vg); vg.connect(o.frequency);
-  og.gain.setValueAtTime(0, t0); og.gain.linearRampToValueAtTime(.045 * vol, t0 + .25); og.gain.setValueAtTime(.045 * vol, t0 + dur * .5); og.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+  og.gain.setValueAtTime(0, t0); og.gain.linearRampToValueAtTime(.025 * vol, t0 + .25); og.gain.setValueAtTime(.025 * vol, t0 + dur * .5); og.gain.exponentialRampToValueAtTime(.001, t0 + dur);
   o.connect(og); og.connect(S.bus); og.connect(S.verb);
   const h = c.createBufferSource(), hf = c.createBiquadFilter(), hg = c.createGain();                              // '슈' 하는 바람
   h.buffer = S.hissBuf; hf.type = "bandpass"; hf.Q.value = 1.2; hf.frequency.setValueAtTime(1800, t0); hf.frequency.exponentialRampToValueAtTime(4500, t0 + dur);
-  hg.gain.setValueAtTime(.1 * vol, t0); hg.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+  hg.gain.setValueAtTime(.05 * vol, t0); hg.gain.exponentialRampToValueAtTime(.001, t0 + dur);
   h.connect(hf); hf.connect(hg); hg.connect(S.bus);
   [o, vib, h].forEach(n => { n.start(t0); n.stop(t0 + dur + .05); });
 }
+// 터질 때 작고 귀여운 '퐁': 둥근 사인파가 위에서 아래로 톡 떨어지고, 아주 짧은 '푸' 숨소리. 긴 메아리·묵직한 저음은 뺐다
 function fwBoom(S, t0, p, vol, crackle) {
-  const c = S.ctx, b = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
-  b.buffer = S.boomBuf; lp.type = "lowpass"; lp.frequency.setValueAtTime(650 + 250 * p, t0); lp.frequency.exponentialRampToValueAtTime(120, t0 + .45);   // 고음을 깎아 멀리서 '펑'
-  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime((1.1 + .4 * p) * vol, t0 + .018);                 // 앞머리를 살짝 눌러 덜 날카롭게
-  b.connect(lp); lp.connect(g); g.connect(S.bus); g.connect(S.verb); g.connect(S.dly); b.start(t0);
-  const k = c.createOscillator(), kg = c.createGain();                                                            // 가슴 울리는 '둥'
-  k.frequency.setValueAtTime(90, t0); k.frequency.exponentialRampToValueAtTime(38, t0 + .4);
-  kg.gain.setValueAtTime(.55 * vol, t0); kg.gain.exponentialRampToValueAtTime(.001, t0 + .55);
-  k.connect(kg); kg.connect(S.bus); kg.connect(S.dly); k.start(t0); k.stop(t0 + .6);
-  if (crackle) for (let i = 0; i < 18; i++) {                                                                     // 끝에 타다닥
-    const s = c.createBufferSource(), f = c.createBiquadFilter(), cg = c.createGain(), at = t0 + .45 + Math.random() * 1.3;
-    s.buffer = S.crackBuf; f.type = "bandpass"; f.frequency.value = 1800; cg.gain.value = (.04 + Math.random() * .05) * vol;
-    s.connect(f); f.connect(cg); cg.connect(S.bus); cg.connect(S.verb); s.start(at);
+  const c = S.ctx, f0 = 640 - 160 * p + Math.random() * 80;                                    // 큰 폭죽일수록 조금 낮은 '퐁'
+  for (const [mul, amp] of [[1, .5], [2.01, .12]]) {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(f0 * mul, t0); o.frequency.exponentialRampToValueAtTime(f0 * mul * .45, t0 + .14);
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(amp * vol, t0 + .008); g.gain.exponentialRampToValueAtTime(.001, t0 + .22);
+    o.connect(g); g.connect(S.bus); g.connect(S.verb); o.start(t0); o.stop(t0 + .25);
+  }
+  const b = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
+  b.buffer = S.boomBuf; lp.type = "lowpass"; lp.frequency.value = 900;
+  g.gain.setValueAtTime(.12 * vol, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + .12);
+  b.connect(lp); lp.connect(g); g.connect(S.bus); b.start(t0); b.stop(t0 + .15);
+  if (crackle) for (let i = 0; i < 5; i++) {                                                   // 끝에 작은 '띵' 몇 개 (반짝이)
+    const o = c.createOscillator(), cg = c.createGain(), at = t0 + .3 + Math.random() * .9;
+    o.type = "sine"; o.frequency.value = 1400 + Math.random() * 900;
+    cg.gain.setValueAtTime(.025 * vol, at); cg.gain.exponentialRampToValueAtTime(.0005, at + .18);
+    o.connect(cg); cg.connect(S.bus); cg.connect(S.verb); o.start(at); o.stop(at + .2);
   }
 }
 function fwSound() {
-  if (!actx || !SND.power || !started) return null;
+  if (!actx || !SND.power || !SND.fx.on || !started) return null;
   if (!fwSnd) fwSnd = makeFwSnd(actx, actx.destination);
-  fwSnd.bus.gain.value = curve(SND.master) * .38;                                   // 소리 패널 전체 크기를 따른다
+  fwSnd.bus.gain.value = curve(SND.master) * .38 * curve(SND.fx.vol) / curve(60);                                   // 소리 패널 전체 크기를 따른다
   return fwSnd;
 }
 function whistle(dur, p, mine) {
@@ -1058,6 +1071,115 @@ $("nickSave").onclick = () => {
 $("nickEd").addEventListener("keydown", e => { if (e.key === "Enter") $("nickSave").click(); });
 function onMyChar(px, py) { const c = chars.get(me); if (!c) return false; const s = scaleAt(c.y); return Math.abs(px - c.x) < 18 * s && py > c.y - 62 * s && py < c.y + 4 * s; }
 
+// ---------- 머무는 재미: 소원 풍등, 하트, 쉬는 시간, 운영자 오로라 ----------
+// 소원 풍등: 한 줄 소원을 적어 띄우면 내 자리에서 천천히 하늘로 올라가고, 처음 9초는 소원 글씨가 같이 보인다(모두에게). 운영자가 있으면 금빛
+const lanterns = [], hearts = [];
+let adminOn = false, adminFade = 0, restStart = 0, restMarks = new Set(), lastSeat = null, lastAct = "sit", restoring = false;
+const lanternSprite = (() => {
+  const c = document.createElement("canvas"); c.width = 48; c.height = 64; const g = c.getContext("2d");
+  const body = g.createLinearGradient(0, 0, 0, 56); body.addColorStop(0, "#ffb15a"); body.addColorStop(.6, "#ffd88a"); body.addColorStop(1, "#fff2c8");
+  g.fillStyle = body; g.beginPath(); g.moveTo(8, 4); g.quadraticCurveTo(24, -2, 40, 4); g.lineTo(36, 50); g.quadraticCurveTo(24, 54, 12, 50); g.closePath(); g.fill();
+  g.strokeStyle = "rgba(170,90,30,.35)"; g.lineWidth = 1.2; for (const x of [17, 24, 31]) { g.beginPath(); g.moveTo(x, 3); g.lineTo(x + (x - 24) * .3, 51); g.stroke(); }
+  const core = g.createRadialGradient(24, 46, 0, 24, 46, 10); core.addColorStop(0, "rgba(255,255,230,1)"); core.addColorStop(1, "rgba(255,220,140,0)");
+  g.fillStyle = core; g.fillRect(12, 34, 24, 24);
+  return c;
+})();
+function launchLantern(m) {
+  const c = chars.get(m.id); if (!c) return;
+  const s = scaleAt(c.y);
+  if (lanterns.length >= 24) lanterns.shift();
+  lanterns.push({ x: c.x, y: c.y - 30 * s, s0: s * 1.1, age: 0, w: m.w || "", gold: !!m.gold, nick: c.nick, ph: Math.random() * 6, drift: (Math.random() - .5) * 18 * U, mine: m.id === me });
+}
+function drawLanterns(t, dt) {
+  const top = H * .04;
+  for (let i = lanterns.length - 1; i >= 0; i--) {
+    const L = lanterns[i]; L.age += dt;
+    const u = Math.min(1, L.age / 42), e = 1 - (1 - u) ** 1.6;
+    if (u >= 1) { lanterns.splice(i, 1); continue; }
+    const x = L.x + Math.sin(L.age * .6 + L.ph) * 5 * U + L.drift * e, y = L.y + (top - L.y) * e, sc = L.s0 * (1 - .72 * e);
+    const a = Math.min(1, L.age / 1.2) * (u > .8 ? (1 - u) / .2 : 1), fl = .85 + .15 * Math.sin(t * 7 + L.ph);
+    const w = 14 * sc, h = 18.5 * sc;
+    cx.globalCompositeOperation = "lighter";
+    const g = cx.createRadialGradient(x, y, 0, x, y, 30 * sc);
+    g.addColorStop(0, L.gold ? `rgba(255,215,110,${.5 * a * fl})` : `rgba(255,170,90,${.42 * a * fl})`); g.addColorStop(1, "rgba(255,170,90,0)");
+    cx.fillStyle = g; cx.fillRect(x - 30 * sc, y - 30 * sc, 60 * sc, 60 * sc);
+    cx.globalCompositeOperation = "source-over";
+    cx.globalAlpha = a; cx.drawImage(lanternSprite, x - w / 2, y - h / 2, w, h); cx.globalAlpha = 1;
+    if (L.gold) { cx.strokeStyle = `rgba(255,225,140,${.7 * a})`; cx.lineWidth = .8 * U; cx.strokeRect(x - w / 2, y - h / 2, w, h * .9); }
+    if (L.age < 9 && (L.w || L.mine)) {                                                    // 소원 글씨
+      const ta = Math.min(1, L.age / .6, (9 - L.age) / 1.5);
+      cx.font = `600 ${Math.max(12, 11 * U)}px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`; cx.textAlign = "center";
+      cx.shadowColor = "rgba(0,0,0,.65)"; cx.shadowBlur = 6;
+      cx.fillStyle = `rgba(255,236,200,${ta})`; cx.fillText(L.w ? `“${L.w}”` : "소원 풍등", Math.max(70, Math.min(W - 70, x)), y + h / 2 + 14 * U);
+      cx.fillStyle = `rgba(220,215,240,${.75 * ta})`; cx.font = `500 ${Math.max(10, 9 * U)}px sans-serif`; cx.fillText(`${L.nick}`, Math.max(70, Math.min(W - 70, x)), y + h / 2 + 26 * U);
+      cx.shadowBlur = 0;
+    }
+  }
+}
+// 하트: 다른 사람 캐릭터를 누르면 내 머리 위에서 그 사람에게 하트가 날아간다
+function sendHeart(to) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "heart", to })); }
+function charAt(px, py) {
+  let best = null, bd = 1e9;
+  for (const c of chars.values()) {
+    if (c.id === me || c.state === "leave") continue;
+    const s = scaleAt(c.y), dx = Math.abs(px - c.x), d = dx + Math.abs(py - (c.y - 24 * s));
+    if (dx < 16 * s && py > c.y - 54 * s && py < c.y + 4 * s && d < bd) { bd = d; best = c; }
+  }
+  return best;
+}
+function drawHearts(t, dt) {
+  for (let i = hearts.length - 1; i >= 0; i--) {
+    const h = hearts[i]; h.age += dt;
+    const a = chars.get(h.from), b = chars.get(h.to);
+    if (!a || !b || h.age > 2.2) { hearts.splice(i, 1); continue; }
+    const sa = scaleAt(a.y), sb = scaleAt(b.y), u = Math.min(1, h.age / 1.1), e = u * u * (3 - 2 * u);
+    const x0 = a.x, y0 = a.y - 46 * sa, x1 = b.x, y1 = b.y - 46 * sb;
+    const x = x0 + (x1 - x0) * e, y = y0 + (y1 - y0) * e - Math.sin(e * Math.PI) * 40 * U;
+    const pop = u >= 1 ? (h.age - 1.1) / 1.1 : 0;
+    cx.globalAlpha = 1 - pop; cx.font = `${Math.max(16, 18 * U) * (1 + pop * .6)}px serif`; cx.textAlign = "center";
+    cx.fillText("💗", x, y - pop * 14 * U);
+    if (pop > 0) for (let k = 0; k < 4; k++) { const an = k / 4 * TAU + .4; cx.font = `${Math.max(9, 9 * U)}px serif`; cx.fillText("♥", x + Math.cos(an) * pop * 22 * U, y + Math.sin(an) * pop * 16 * U - pop * 10 * U); }
+    cx.globalAlpha = 1;
+  }
+}
+// 운영자가 방에 있으면 하늘에 오로라 띠가 천천히 일렁인다 (세로 그라데이션 조각 하나를 늘려 찍어서 가볍게)
+const auroraStrip = (() => { const c = document.createElement("canvas"); c.width = 1; c.height = 64; const g = c.getContext("2d"); const gr = g.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, "rgba(120,255,200,0)"); gr.addColorStop(.55, "rgba(120,255,200,.9)"); gr.addColorStop(.8, "rgba(160,120,255,.5)"); gr.addColorStop(1, "rgba(160,120,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 1, 64); return c; })();
+function drawAurora(t, dt) {
+  adminFade += ((adminOn ? 1 : 0) - adminFade) * Math.min(1, dt * .6);
+  if (adminFade < .01) return;
+  cx.globalCompositeOperation = "lighter";
+  const step = 4;
+  for (let k = 0; k < 3; k++) {
+    const baseY = H * (.05 + k * .06), hh = H * (.1 + k * .02);
+    for (let x = 0; x < W; x += step) {
+      const y = baseY + Math.sin(x * .006 + t * .25 + k * 2) * H * .025 + Math.sin(x * .017 - t * .4 + k) * H * .01;
+      const a = adminFade * (.12 + .1 * Math.sin(x * .011 + t * .6 + k * 1.7)) * (k === 1 ? .8 : 1);
+      if (a <= 0) continue;
+      cx.globalAlpha = a * .8; cx.drawImage(auroraStrip, x - 1, y, step + 2, hh);
+    }
+  }
+  cx.globalAlpha = 1; cx.globalCompositeOperation = "source-over";
+}
+// 쉬는 시간: 앉아 있은 지 n분. 5·15·30분에 짧게 인사
+function restTick() {
+  const el = $("rest"); if (!restStart) { el.textContent = ""; return; }
+  const min = Math.floor((Date.now() - restStart) / 60000);
+  el.textContent = min < 1 ? "" : ` · ${min}분째 쉬는 중`;
+  const msg = { 5: "5분째 쉬고 있어요. 강바람 좋죠", 15: "15분째예요. 어깨 한 번 쭉 펴 봐요 🙆", 30: "30분째 같이 있어요. 오늘 하루도 수고했어요 🌙" }[min];
+  if (msg && !restMarks.has(min)) { restMarks.add(min); toast(msg, 4500); }
+}
+setInterval(restTick, 20000);
+function openWish() { $("wishEd").value = ""; $("wishBox").classList.add("on"); setTimeout(() => $("wishEd").focus(), 50); }
+const closeWish = () => $("wishBox").classList.remove("on");
+let lastLanternSent = -1e9;
+$("wishCancel").onclick = closeWish;
+$("wishSend").onclick = () => {
+  if (performance.now() - lastLanternSent < 15000) { closeWish(); return toast("풍등은 15초에 하나씩 띄울 수 있어요", 2200); }
+  if (ws && ws.readyState === 1) { ws.send(JSON.stringify({ t: "lantern", w: $("wishEd").value.replace(/\s+/g, " ").trim() })); lastLanternSent = performance.now(); }
+  closeWish();
+};
+$("wishEd").addEventListener("keydown", e => { if (e.key === "Enter") $("wishSend").click(); });
+
 // ---------- 루프 ----------
 let last = performance.now();
 function frame(now) {
@@ -1065,13 +1187,16 @@ function frame(now) {
   const t = now / 1000;
   cx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawScene(t, dt);
+  drawAurora(t, dt);
   drawFireworks(t, dt);
+  drawLanterns(t, dt);
   const mine = chars.get(me), picking = canPick();
   const glowBase = !picking ? 0 : mine.state === "sit" ? .2 : .6;
   seats.forEach((s, i) => drawMat(s, glowBase && !seatTaken(i) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
   for (const c of chars.values()) stepChar(c, dt);
   [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
   drawAim(t);
+  drawHearts(t, dt);
   cx.drawImage(vignette, 0, 0, W, H);
   requestAnimationFrame(frame);
 }
@@ -1098,10 +1223,23 @@ function connect() {
       if (m.admin && !isAdmin) { isAdmin = true; buildAdmin(); toast("👑 운영자로 들어왔어요", 3000); }
       else if (adminKey && !m.admin && !isAdmin) { adminKey = ""; try { localStorage.removeItem("hn-admin"); } catch {} }   // 틀린 키는 버린다
       if (m.fountain != null) startFountain(m.fountain);
+      adminOn = !!m.adminHere;
+      if (lastSeat != null) { restoring = true; ws.send(JSON.stringify({ t: "sit", seat: lastSeat })); }   // 다시 붙으면 앉아 있던 자리로
       syncActs();
     } else if (m.t === "join") addChar(m.user, true);
-    else if (m.t === "seat") goSeat(m.id, m.seat);
-    else if (m.t === "taken") toast("앗, 방금 다른 분이 먼저 앉았어요", 2500);
+    else if (m.t === "seat") {
+      goSeat(m.id, m.seat);
+      if (m.id === me) {
+        if (lastSeat == null || !restStart) restStart = Date.now();
+        if (restoring && lastAct !== "sit") { const c = chars.get(me); if (c) { c.act = lastAct; syncActs(); ws.send(JSON.stringify({ t: "act", a: lastAct })); } }
+        lastSeat = m.seat; restoring = false; restTick();
+      }
+    }
+    else if (m.t === "taken") { if (!restoring) toast("앗, 방금 다른 분이 먼저 앉았어요", 2500); restoring = false; }
+    else if (m.t === "lantern") launchLantern(m);
+    else if (m.t === "heart") { hearts.push({ from: m.from, to: m.to, age: 0 }); if (m.to === me) { const f = chars.get(m.from); toast(`💗 ${f ? f.nick : "누군가"}님이 하트를 보냈어요`, 2500); } }
+    else if (m.t === "adminHere") { adminOn = m.on; if (m.on) toast(`👑 운영자 ${m.nick || ""}님이 왔어요. 하늘에 오로라가 떴어요`, 4500); }
+    else if (m.t === "restart") toast("잠깐 새 단장 중이에요. 자리는 그대로 돌아와요", 0);
     else if (m.t === "leave") removeChar(m.id);
     else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
     else if (m.t === "fw") launchFw(m);
@@ -1117,7 +1255,7 @@ function connect() {
     clearInterval(pingT);
     if (retry >= 99) return;
     for (const c of chars.values()) if (c.id !== me) chars.delete(c.id);
-    toast("연결이 끊겨서 다시 연결하고 있어요", 0);
+    if (!$("toast").textContent.startsWith("잠깐 새 단장")) toast("연결이 끊겨서 다시 연결하고 있어요", 0);
     setTimeout(connect, Math.min(15000, 1000 * 2 ** retry++));
   };
 }
@@ -1135,6 +1273,9 @@ function buildActs() {
     setAiming(!aiming); $("emo").classList.remove("open");
   };
   bar.appendChild(fb);
+  const lb = document.createElement("button"); lb.innerHTML = "🏮<span>소원 풍등</span>"; lb.setAttribute("aria-label", "소원 풍등");
+  lb.onclick = () => { if (aiming) setAiming(false); $("emo").classList.remove("open"); openWish(); };
+  bar.appendChild(lb);
   const sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
   for (const [id, icon, name] of ACTS) {
     const b = document.createElement("button"); b.dataset.act = id; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", name);
@@ -1142,7 +1283,7 @@ function buildActs() {
       const c = chars.get(me);
       if (!c || c.state !== "sit" && !(c.state === "walk" && c.then === "sit")) return toast("먼저 빈 돗자리를 눌러 앉아 주세요", 2500);
       const a = c.act === id ? "sit" : id;
-      c.act = a; syncActs();
+      c.act = a; lastAct = a; syncActs();
       if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "act", a }));
     };
     bar.appendChild(b);
@@ -1187,9 +1328,9 @@ const TRACKS = [
   { id: "city", name: "🏙️ 도시", vol: 35, on: false },
   { id: "crick", name: "🦗 풀벌레", vol: 35, on: false },
 ];
-const SND = { master: 60, power: true };
-try { const v = JSON.parse(localStorage.getItem("hn-sound2") || "null"); if (v) { SND.master = v.master; SND.power = v.power; TRACKS.forEach(t => { if (v[t.id]) { t.vol = v[t.id].vol; t.on = v[t.id].on; } }); } } catch {}
-function saveSnd() { try { const v = { master: SND.master, power: SND.power }; TRACKS.forEach(t => v[t.id] = { vol: t.vol, on: t.on }); localStorage.setItem("hn-sound2", JSON.stringify(v)); } catch {} }
+const SND = { master: 60, power: true, fx: { on: true, vol: 60 } };   // fx = 폭죽 같은 효과음(배경 소리와 따로 끄고 켜기)
+try { const v = JSON.parse(localStorage.getItem("hn-sound2") || "null"); if (v) { SND.master = v.master; SND.power = v.power; if (v.fx) SND.fx = v.fx; TRACKS.forEach(t => { if (v[t.id]) { t.vol = v[t.id].vol; t.on = v[t.id].on; } }); } } catch {}
+function saveSnd() { try { const v = { master: SND.master, power: SND.power, fx: SND.fx }; TRACKS.forEach(t => v[t.id] = { vol: t.vol, on: t.on }); localStorage.setItem("hn-sound2", JSON.stringify(v)); } catch {} }
 let actx = null, masterGain = null, started = false, hasSound = false;
 const curve = v => (v / 100) ** 2;
 function ensureCtx() {
@@ -1211,7 +1352,7 @@ function applySound() {
     if (t.gain) t.gain.gain.value = curve(t.vol); else t.el.volume = Math.min(1, curve(t.vol) * curve(SND.master));
     play ? t.el.play().catch(() => {}) : t.el.pause();
   }
-  $("snd").textContent = SND.power && TRACKS.some(t => t.on) ? "🔊" : "🔈";
+  $("snd").textContent = SND.power && (TRACKS.some(t => t.on) || SND.fx.on) ? "🔊 소리" : "🔇 꺼짐";
   saveSnd();
 }
 function buildMixer() {
@@ -1230,10 +1371,18 @@ function buildMixer() {
     r.oninput = () => { t.vol = +r.value; applySound(); };
     sync(); row.append(b, r); $("mxTracks").appendChild(row);
   }
+  { // 폭죽·효과음만 따로 (배경 소리는 그대로)
+    const row = document.createElement("div"), b = document.createElement("button"), r = document.createElement("input"); row.className = "row fx";
+    b.textContent = "🎆 폭죽 소리"; r.type = "range"; r.min = 0; r.max = 100; r.value = SND.fx.vol; r.setAttribute("aria-label", "폭죽 소리 크기");
+    const sync = () => { b.classList.toggle("on", SND.fx.on); r.disabled = !SND.fx.on; };
+    b.onclick = () => { SND.fx.on = !SND.fx.on; sync(); applySound(); };
+    r.oninput = () => { SND.fx.vol = +r.value; applySound(); };
+    sync(); row.append(b, r); $("mxTracks").appendChild(row);
+  }
 }
 buildMixer();
 $("snd").onclick = () => $("mixer").classList.toggle("on");
-cv.addEventListener("pointerdown", () => { $("mixer").classList.remove("on"); $("emo").classList.remove("open"); });
+cv.addEventListener("pointerdown", () => { $("mixer").classList.remove("on"); $("emo").classList.remove("open"); closeWish(); });
 $("snd").style.display = "none";
 fetch("amb-river.mp3", { method: "HEAD" }).then(r => {
   if (!r.ok) return;

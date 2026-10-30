@@ -31,9 +31,9 @@ const IMPOSTOR = ["운영", "관리자", "관리인", "어드민", "admin", "매
 const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 const toCho = w => [...w].map(ch => { const c = ch.charCodeAt(0) - 0xac00; return c >= 0 && c < 11172 ? CHO[Math.floor(c / 588)] : ch; }).join("");
 const BAD_CHO = BAD.filter(w => /^[가-힣]{2,}$/.test(w)).map(toCho).concat(["ㅅㅂ", "ㅆㅂ", "ㅂㅅ", "ㅈㄴ", "ㅅㄲ", "ㅁㅊ", "ㅈㄹ", "ㅗ", "ㅄ", "ㅈㅈ", "ㅂㅈ", "ㅅㅅ"]);
-function cleanNick(raw, admin) {
+function cleanNick(raw, admin, max = NICK_MAX) {
   if (typeof raw !== "string") return null;
-  const n = [...raw.normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\u3164\uffa0]/g, "").replace(/\s+/g, " ").trim()].slice(0, NICK_MAX).join("").trim();
+  const n = [...raw.normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\u3164\uffa0]/g, "").replace(/\s+/g, " ").trim()].slice(0, max).join("").trim();
   if (!n) return null;
   const low = n.toLowerCase(), squash = x => x.replace(/[^a-z가-힣ㄱ-ㅎㅏ-ㅣ]/g, "").replace(/(.)\1+/g, "$1");
   const flats = [squash(low.replace(/[1!|]/g, "i").replace(/0/g, "o").replace(/3/g, "e").replace(/[4@]/g, "a").replace(/[5$]/g, "s").replace(/7/g, "t")), squash(low)];   // 숫자를 글자로 / 숫자를 빼고
@@ -45,6 +45,7 @@ function cleanNick(raw, admin) {
 // 운영자: Render 환경 변수 ADMIN_KEY와 같은 키로 들어온 사람. 왕관 이름표, 황금 폭죽(1초 간격), 분수·유성우 켜기
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
 const isAdminKey = k => ADMIN_KEY.length >= 8 && typeof k === "string" && k.length === ADMIN_KEY.length && require("crypto").timingSafeEqual(Buffer.from(k), Buffer.from(ADMIN_KEY));
+const WISH_MAX = 15, LANTERN_GAP = 15000, HEART_GAP = 1500;   // 소원 풍등 글자 수·간격, 하트 간격
 const FW_KINDS = 5, FW_COLORS = 7;   // index.html FW_SHAPES·FW_HUES 길이와 같아야 함
 
 const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
@@ -101,6 +102,7 @@ function pickRoom() {
   if (!r && rooms.length < MAX_ROOMS) { r = { no: rooms.length + 1, users: new Map(), fountainAt: 0 }; rooms.push(r); }
   return r;
 }
+const adminHere = room => [...room.users.values()].some(o => o.admin);
 const pub = u => ({ id: u.id, seat: u.seat, color: u.color, act: u.act, nick: u.nick, admin: u.admin || undefined });
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 function broadcast(room, msg, except) {
@@ -130,8 +132,9 @@ wss.on("connection", (ws, req) => {
   u.nick = cleanNick(asked, u.admin) || randNick();
   room.users.set(u.id, u);
   ws.alive = true;
-  send(ws, { t: "init", you: u.id, admin: u.admin, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
+  send(ws, { t: "init", you: u.id, admin: u.admin, adminHere: adminHere(room) || u.admin, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
   broadcast(room, { t: "join", user: pub(u) }, ws);
+  if (u.admin) broadcast(room, { t: "adminHere", on: true, nick: u.nick }, ws);
   sendCounts();
   day.peak = Math.max(day.peak, total());
 
@@ -156,6 +159,18 @@ wss.on("connection", (ws, req) => {
       u.lastAdmin = now;
       if (m.do === "fountain") { room.fountainAt = now; broadcast(room, { t: "fountain" }); }
       else broadcast(room, { t: "meteor" });
+    } else if (m.t === "lantern") {
+      // 소원 풍등: 한 줄 소원(15자, 욕설·음란어는 글 없이 풍등만). 운영자가 방에 있으면 금빛
+      const now = Date.now();
+      if (now - (u.lastLantern || 0) < LANTERN_GAP) return;
+      u.lastLantern = now;
+      const w = m.w ? cleanNick(m.w, true, WISH_MAX) || "" : "";
+      broadcast(room, { t: "lantern", id: u.id, w, gold: adminHere(room) || undefined });
+    } else if (m.t === "heart" && Number.isInteger(m.to) && m.to !== u.id && room.users.has(m.to)) {
+      const now = Date.now();
+      if (now - (u.lastHeart || 0) < HEART_GAP) return;
+      u.lastHeart = now;
+      broadcast(room, { t: "heart", from: u.id, to: m.to });
     } else if (m.t === "nick") {
       const now = Date.now();
       if (now - u.lastNick < NICK_GAP) return send(ws, { t: "nickbad", why: "wait" });
@@ -185,6 +200,7 @@ wss.on("connection", (ws, req) => {
     room.users.delete(u.id);
     const n = ips.get(ip) - 1; n > 0 ? ips.set(ip, n) : ips.delete(ip);
     broadcast(room, { t: "leave", id: u.id });
+    if (u.admin && !adminHere(room)) broadcast(room, { t: "adminHere", on: false });
     sendCounts();
   });
 });
@@ -197,4 +213,9 @@ setInterval(() => {
   }
 }, 30000);
 
+// Render가 새 버전을 올리며 서버를 끌 때: 모두에게 알리고 닫는다. 페이지는 바로 다시 붙고 자리·행동·닉네임을 되찾는다
+process.on("SIGTERM", () => {
+  for (const r of rooms) broadcast(r, { t: "restart" });
+  setTimeout(() => { for (const c of wss.clients) c.close(1012, "restart"); setTimeout(() => process.exit(0), 300); }, 200);
+});
 server.listen(PORT, () => console.log("listening on", PORT));
