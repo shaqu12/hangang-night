@@ -782,10 +782,22 @@ function drawChar(c, t) {
     cx.beginPath();
     cx.moveTo(x - 9 * s, bodyTop + 3 * s); cx.quadraticCurveTo(x, bodyTop - 2 * s, x + 9 * s, bodyTop + 3 * s);
     cx.lineTo(x + bw, bodyBot); cx.quadraticCurveTo(x, bodyBot + 3 * s, x - bw, bodyBot); cx.closePath(); cx.fill();
-    cx.fillStyle = "rgba(0,0,0,.12)"; cx.beginPath(); cx.ellipse(x, bodyTop + 4 * s, 7 * s, 3 * s, 0, 0, TAU); cx.fill();
+    const front = c.state === "sit" && !moving;
+    if (front) { cx.fillStyle = "#e3bf9f"; cx.beginPath(); cx.moveTo(x - 3.4 * s, bodyTop + 1.5 * s); cx.lineTo(x + 3.4 * s, bodyTop + 1.5 * s); cx.lineTo(x, bodyTop + 6 * s); cx.closePath(); cx.fill(); }   // 앞섶
+    else { cx.fillStyle = "rgba(0,0,0,.12)"; cx.beginPath(); cx.ellipse(x, bodyTop + 4 * s, 7 * s, 3 * s, 0, 0, TAU); cx.fill(); }
     const shade = cx.createLinearGradient(x - bw, 0, x + bw, 0); shade.addColorStop(0, "rgba(255,225,180,.1)"); shade.addColorStop(.5, "rgba(0,0,0,0)"); shade.addColorStop(1, "rgba(0,0,10,.28)");
     cx.fillStyle = shade; cx.beginPath(); cx.moveTo(x - 9 * s, bodyTop + 3 * s); cx.quadraticCurveTo(x, bodyTop - 2 * s, x + 9 * s, bodyTop + 3 * s);
     cx.lineTo(x + bw, bodyBot); cx.quadraticCurveTo(x, bodyBot + 3 * s, x - bw, bodyBot); cx.closePath(); cx.fill();
+    if (front) {                                                                                   // 양반다리(앞에서 본 무릎·신발)와 무릎에 올린 손
+      cx.fillStyle = "#2b2f3d";
+      cx.beginPath(); cx.ellipse(x - 6.5 * s, y - 1.5 * s, 9.5 * s, 3.8 * s, .12, 0, TAU); cx.fill();
+      cx.beginPath(); cx.ellipse(x + 6.5 * s, y - 1.5 * s, 9.5 * s, 3.8 * s, -.12, 0, TAU); cx.fill();
+      cx.fillStyle = "rgba(255,255,255,.07)"; cx.beginPath(); cx.ellipse(x - 7 * s, y - 3 * s, 6 * s, 1.4 * s, .12, 0, TAU); cx.ellipse(x + 7 * s, y - 3 * s, 6 * s, 1.4 * s, -.12, 0, TAU); cx.fill();
+      cx.fillStyle = "#e8e2d6"; cx.beginPath(); cx.ellipse(x - 2.5 * s, y + 1.2 * s, 2.6 * s, 1.5 * s, 0, 0, TAU); cx.ellipse(x + 2.5 * s, y + 1.2 * s, 2.6 * s, 1.5 * s, 0, 0, TAU); cx.fill();
+      const bite0 = act === "chicken" && Math.sin(t * .8 + ph) > .55, fire0 = now - (c.fwAt || 0) < 900;
+      if (act !== "stretch" && act !== "star" && !bite0) arm(c, shL, { x: x - 9 * s, y: y - 3 * s }, s);
+      if (act !== "stretch" && act !== "star" && act !== "photo" && !waving && !fire0) arm(c, shR, { x: x + 9 * s, y: y - 3 * s }, s);
+    }
     hy = bodyTop - 9 * s + (c.state === "sit" ? Math.sin(t * .4 + ph) * .4 * s : 0);
     hx = x + (c.state === "sit" ? Math.sin(t * .3 + ph * 2) * .8 * s : 0);
     if (act === "star") hy -= 1.5 * s;
@@ -888,7 +900,7 @@ function arm(c, a, b, s) {
   cx.strokeStyle = "rgba(0,0,10,.15)"; cx.lineWidth = 1.2 * s; cx.beginPath(); cx.moveTo(a.x + .8 * s, a.y + .8 * s); cx.lineTo(b.x + .8 * s, b.y + .8 * s); cx.stroke();
   cx.fillStyle = "#e9c4a3"; cx.beginPath(); cx.arc(b.x, b.y, 1.9 * s, 0, TAU); cx.fill();
 }
-// 앞모습: 인사·마음·말풍선·쓰다듬기 때 잠깐 뒤돌아 얼굴을 보여 준다 (평소엔 강을 보는 뒷모습)
+// 앉으면 앞모습. 인사·마음·말풍선·쓰다듬기 때는 표정(c.mood)만 잠깐 바뀐다
 const JOY = /[😊😄😆🥰😍💗💕💞💛❤🎉👏✨🤗😂]/u;
 function face(id, ms, e) { const c = chars.get(id); if (!c) return; const now = performance.now(); if (!(c.faceUntil > now)) c.faceAt = now; c.faceUntil = Math.max(c.faceUntil || 0, now + ms); c.mood = e && /[😢😭🥺]/u.test(e) ? "sad" : e && JOY.test(e) ? "joy" : "smile"; }
 function drawFace(c, hx, hy, s, t, sq) {
@@ -922,14 +934,9 @@ function drawFace(c, hx, hy, s, t, sq) {
   }
 }
 function drawHead(c, hx, hy, s, t, sq) {
-  const now = performance.now();
-  if (c.faceUntil > now) {                                                                  // 고개를 돌리는 순간은 옆으로 살짝 찌그러뜨려 '휙' 느낌
-    const k = Math.min(1, (now - c.faceAt) / 160, (c.faceUntil - now) / 160);
-    if (k < 1) { cx.save(); cx.translate(hx, hy); cx.scale(.55 + .45 * k, 1); cx.translate(-hx, -hy); (k < .5 ? drawBack : drawFace)(c, hx, hy, s, t, sq); cx.restore(); }
-    else drawFace(c, hx, hy, s, t, sq);
-    return;
-  }
-  drawBack(c, hx, hy, s, t, sq);
+  // 걸을 때·서 있을 때는 뒷모습, 돗자리에 앉으면 화면 쪽을 보고 앉아 늘 얼굴이 보인다. 이모지 등은 표정만 잠깐 바뀜
+  if (c.state === "sit" && !c.path.length) { const m = c.mood; if (!(c.faceUntil > performance.now())) c.mood = "smile"; drawFace(c, hx, hy, s, t, sq); c.mood = m; }
+  else drawBack(c, hx, hy, s, t, sq);
 }
 function drawBack(c, hx, hy, s, t, sq) {
   if (c.style === 4) { cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy + 8 * s, 11 * s, 13 * s, 0, 0, TAU); cx.fill(); }   // 긴 머리
