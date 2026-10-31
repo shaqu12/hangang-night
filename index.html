@@ -118,6 +118,14 @@
   #inboxList { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
   #inboxList .item { background: #f6eedb; color: #3b2f25; border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
   #inboxList .meta { color: #8a7a66; font-size: 11px; margin-bottom: 4px; }
+  #petBox { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); width: min(320px, calc(100vw - 32px)); padding: 18px 16px 14px; border-radius: 22px; background: #fff4e6; color: #4a3424; box-shadow: 0 12px 40px rgba(0,0,0,.45); display: none; flex-direction: column; gap: 10px; text-align: center; z-index: 6; }
+  #petBox.on { display: flex; } #petBox .face { font-size: 46px; line-height: 1; animation: petHop 1.2s ease-in-out infinite; } @keyframes petHop { 50% { transform: translateY(-6px) rotate(-4deg); } }
+  #petBox b { font-size: 17px; } #petBox small { color: #8a6a52; font-size: 12.5px; line-height: 1.6; }
+  #petBox .snacks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } #petBox .snacks button { all: unset; cursor: pointer; padding: 10px 2px; border-radius: 14px; background: #ffe7c9; display: grid; gap: 2px; font-size: 22px; }
+  #petBox .snacks button span { font-size: 12px; color: #7a5638; font-weight: 700; } #petBox .snacks button.sel { background: #ffc98a; box-shadow: inset 0 0 0 2px #e8913a; }
+  #petBox .go { all: unset; cursor: pointer; padding: 12px; border-radius: 999px; background: #e8913a; color: #fff; font-weight: 700; font-size: 15px; } #petBox .go.off { background: #d9c4ac; }
+  #petBox .row { display: flex; gap: 6px; } #petBox .row button { all: unset; cursor: pointer; flex: 1; padding: 10px; border-radius: 999px; background: #f4e3cf; color: #7a5638; font-size: 14px; }
+  #petQR { display: none; justify-content: center; } #petQR.on { display: flex; } #petQR canvas, #petQR img { width: 150px; height: 150px; background: #fff; padding: 8px; border-radius: 12px; }
   #notice { position: fixed; left: 50%; transform: translateX(-50%); top: calc(max(12px, env(safe-area-inset-top)) + 56px); width: min(440px, calc(100vw - 32px)); padding: 12px 40px 12px 14px; border-radius: 16px; background: rgba(40,32,12,.92); border: 1px solid rgba(245,200,76,.7); box-shadow: 0 8px 30px rgba(0,0,0,.45); color: #fff6dc; display: none; z-index: 7; font-size: 14px; line-height: 1.6; }
   #notice.on { display: block; } #notice b { color: #f5c84c; font-size: 13px; display: block; margin-bottom: 2px; }
   #notice div { max-height: 38vh; overflow-y: auto; white-space: pre-wrap; word-break: keep-all; }
@@ -156,8 +164,9 @@
 <div id="fbBox"><b>💌 나에게 하고 싶은 말</b><small>가까운 사람에게는 못 한 말, 여기엔 적어도 괜찮아요.<br>적은 글은 이 폰 밖으로 나가지 않고, 저장되지도 않아요.</small><div><textarea id="fbEd" maxlength="300" rows="5" aria-label="하고 싶은 말" placeholder="오늘 하고 싶었던 말…"></textarea></div><div class="btns"><button id="fbHear">💌 듣고 싶은 말 받기</button><button id="fbSelf">🍃 혼잣말로 강물에 흘려보내기</button><div class="hint">💌 한강 우체통이 바로 답장해 줘요 · 🍃 답 없이 흘려보내요</div><button id="fbCancel">다음에</button></div>
 <div class="tones"><b style="font-size:14.5px">어떤 말이 듣고 싶어요?</b><div class="grid"><button data-tone="comfort">🤗 위로<em>괜찮다는 말</em></button><button data-tone="cheer">💪 응원<em>힘이 나는 말</em></button><button data-tone="praise">👏 잘했다는 말<em>수고했다는 말</em></button><button data-tone="listen">👂 그냥 들어줘<em>조언 없이</em></button></div><button id="toneBack">← 다시 쓰기</button></div></div>
 <div id="replyBox" role="dialog" aria-label="답장"><b>💌 한강 우체통의 답장</b><p id="replyText"></p><div class="sign">— 한강에서</div><div class="act" id="replyAct"></div><div id="breath"><i></i><span>천천히 들이쉬고…</span></div><div class="help" id="replyHelp">혼자 견디지 않아도 돼요. 지금 바로 이야기를 들어 줄 사람이 있어요.<br>📞 <a href="tel:109">자살예방상담 109</a> (24시간, 무료)<br>💬 청소년이라면 <a href="tel:1388">1388</a></div><div class="row2"><button id="replyAgain">🔄 다른 말 듣기</button><button id="breathBtn">🌬️ 같이 숨 쉬기</button></div><small>이 답장도 어디에도 남지 않아요</small><button id="replyOk">고마워요</button></div>
-<div id="askBox" role="dialog" aria-label="바라는 점"><b>✈️ 한강에 바라는 점</b><small>이용하면서 필요한 것, 불편한 점, 하고 싶은 말을 들려주세요.<br>비행기가 운영자에게 꼭 전해 줄게요.</small><div class="chips"><button>이런 기능이 있으면 좋겠어요: </button><button>이건 좀 불편했어요: </button><button>좋았던 점: </button></div><textarea id="askEd" maxlength="300" rows="4" aria-label="바라는 점" placeholder="예: 친구랑 같은 방에 들어가고 싶어요"></textarea><div class="btns"><button id="askCancel">다음에</button><button id="askSend" class="on">비행기에 실어 보내기</button></div></div>
-<div id="inbox"><div class="head"><b>✈️ 바라는 점</b><button id="inboxClose">닫기</button></div><small id="inboxNote"></small><div id="inboxList"></div></div>
+<div id="askBox" role="dialog" aria-label="바라는 점"><b>📝 한강에 바라는 점</b><small>이용하면서 필요한 것, 불편한 점, 하고 싶은 말을 들려주세요.<br>운영자에게 꼭 전해 줄게요.</small><div class="chips"><button>이런 기능이 있으면 좋겠어요: </button><button>이건 좀 불편했어요: </button><button>좋았던 점: </button></div><textarea id="askEd" maxlength="300" rows="4" aria-label="바라는 점" placeholder="예: 친구랑 같은 방에 들어가고 싶어요"></textarea><div class="btns"><button id="askCancel">다음에</button><button id="askSend" class="on">보내기</button></div></div>
+<div id="inbox"><div class="head"><b>📝 바라는 점</b><button id="inboxClose">닫기</button></div><small id="inboxNote"></small><div id="inboxList"></div></div>
+<div id="petBox" role="dialog" aria-label="간식 주기"><div class="face" id="petFace">🐶</div><b id="petTitle">몽이에게 간식 주기</b><small id="petMsg">한강 돗자리는 무료로 운영돼요.<br>간식 한 번이 서버를 하루 더 켜 줘요 🐾</small><div class="snacks"><button data-amt="1000">🦴<span>1,000원</span></button><button data-amt="3000" class="sel">🍖<span>3,000원</span></button><button data-amt="5000">🎂<span>5,000원</span></button></div><div id="petQR"></div><button class="go" id="petGo">간식 주기</button><div class="row"><button id="petPat">쓰다듬기만 할게요</button><button id="petClose">다음에</button></div></div>
 <div id="notice" role="status"><b>📢 운영자 공지</b><div id="noticeText"></div><button id="noticeClose" aria-label="닫기">✕</button></div>
 <div id="nickBox" class="pill"><b>닉네임 바꾸기</b><div><input id="nickEd" maxlength="5" autocomplete="off" enterkeyhint="done" aria-label="새 닉네임"><button id="nickEdDice" aria-label="다른 이름">🎲</button></div><div class="btns"><button id="nickCancel">닫기</button><button id="nickSave" class="on">바꾸기</button></div></div>
 <div id="gate"><div class="box">
@@ -901,7 +910,7 @@ function seatAt(px, py) {
 }
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
-  if (!aiming && onPlane(e.clientX, e.clientY)) return openAsk();                       // 하늘 비행기: 바라는 점
+  if (!aiming && onPet(e.clientX, e.clientY)) return openPet();                         // 산책로 강아지·고양이: 간식 후원
   if (!aiming && onBoard(e.clientX, e.clientY)) return openAsk();                       // 우체통 옆 게시판: 바라는 점
   if (!aiming && onMailbox(e.clientX, e.clientY)) return openBox("fb");                // 나에게 하고 싶은 말
   if (!aiming && onMyChar(e.clientX, e.clientY)) return openNickBox();                  // 내 캐릭터(이름표)를 누르면 닉네임 바꾸기
@@ -1484,35 +1493,9 @@ function onMailbox(px, py) { const { x, y, s } = mailboxPos(); return Math.abs(p
 // ---------- ✈️ 하늘 비행기: 바라는 점 ----------
 // 가끔(처음 20~35초 뒤, 그다음 50~80초마다) 종이비행기가 '💬 바라는 점' 리본을 달고 하늘을 가로지른다. 누르면 운영자에게 가는 의견 창.
 // 비행기는 각자 화면에서만 날고(맞출 필요 없음), 보낸 글만 서버로 간다. 운영자는 게임 안 ✈️ 버튼으로 읽는다
-let pp = null, nextPP = 20 + Math.random() * 15, letterCount = 0;
-function drawPlane(t, dt) {
-  nextPP -= dt;
-  if (!pp && nextPP <= 0) { const d = Math.random() < .5 ? 1 : -1; pp = { d, x: d > 0 ? -70 : W + 70, y0: H * Y.S * (.3 + Math.random() * .3), age: 0, hold: false, away: 0 }; }
-  if (!pp) return;
-  const p = pp; p.age += dt;
-  if (!p.hold) p.x += p.d * (p.away ? 260 : Math.max(28, W / 15)) * U * dt / U;
-  const y = p.y0 + Math.sin(p.age * 1.3) * 8 * U - (p.away ? (p.age - p.away) * 60 * U : 0);
-  p.cy = y;
-  if (p.x < -120 || p.x > W + 120 || y < -60) { pp = null; nextPP = 50 + Math.random() * 30; return; }
-  const s = Math.max(1.4, U * 1.6), d = p.d, tilt = p.away ? -.5 * d : Math.sin(p.age * 1.3 + 1) * .08;
-  // 리본(뒤에 끌려옴)
-  const label = "💬 바라는 점", rx = p.x - d * 22 * s;
-  cx.font = `600 ${Math.max(11, 9 * s)}px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`; cx.textAlign = "center";
-  const lw = cx.measureText(label).width + 14, lx = rx - d * lw / 2;
-  cx.strokeStyle = "rgba(230,236,255,.6)"; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(p.x - d * 8 * s, y); cx.lineTo(rx, y + 2 * s); cx.stroke();
-  cx.fillStyle = `rgba(255,248,230,${.92 + .05 * Math.sin(t * 3)})`;
-  cx.beginPath(); for (let k = 0; k <= 10; k++) { const xx = rx - d * lw * k / 10, w = Math.sin(t * 5 + k * .7) * 2 * s; cx.lineTo(xx, y - 7 * s + w); } for (let k = 10; k >= 0; k--) { const xx = rx - d * lw * k / 10, w = Math.sin(t * 5 + k * .7) * 2 * s; cx.lineTo(xx, y + 9 * s + w); } cx.fill();
-  cx.fillStyle = "#3d5a99"; cx.fillText(label, lx, y + 5 * s + Math.sin(t * 5 + 5) * 2 * s);
-  // 종이비행기
-  cx.save(); cx.translate(p.x, y); cx.rotate(tilt); cx.scale(d, 1);
-  const g = cx.createRadialGradient(0, 0, 0, 0, 0, 26 * s); g.addColorStop(0, "rgba(200,220,255,.28)"); g.addColorStop(1, "rgba(200,220,255,0)"); cx.fillStyle = g; cx.fillRect(-26 * s, -26 * s, 52 * s, 52 * s);
-  cx.fillStyle = "#ffffff"; cx.beginPath(); cx.moveTo(12 * s, 0); cx.lineTo(-10 * s, -7 * s); cx.lineTo(-5 * s, 0); cx.closePath(); cx.fill();
-  cx.fillStyle = "#cfdcf5"; cx.beginPath(); cx.moveTo(12 * s, 0); cx.lineTo(-5 * s, 0); cx.lineTo(-10 * s, 6 * s); cx.closePath(); cx.fill();
-  cx.restore();
-}
-function onPlane(px, py) { return pp && !pp.away && Math.abs(px - (pp.x - pp.d * 40 * U)) < 70 * U && Math.abs(py - pp.cy) < 30 * U; }
-function openAsk() { if (pp) pp.hold = true; $("askEd").value = ""; $("askBox").classList.add("on"); setTimeout(() => $("askEd").focus(), 50); }
-function closeAsk() { $("askBox").classList.remove("on"); if (pp) pp.hold = false; }
+let letterCount = 0;
+function openAsk() { $("askEd").value = ""; $("askBox").classList.add("on"); setTimeout(() => $("askEd").focus(), 50); }
+function closeAsk() { $("askBox").classList.remove("on"); }
 $("askCancel").onclick = closeAsk;
 $("askBox").querySelectorAll(".chips button").forEach(b => b.onclick = () => { const e = $("askEd"); if (!e.value.startsWith(b.textContent)) e.value = b.textContent + e.value; e.focus(); });
 $("askSend").onclick = () => {
@@ -1542,6 +1525,89 @@ async function openInbox() {
 }
 $("inboxClose").onclick = () => $("inbox").classList.remove("on");
 
+// ---------- 산책로 강아지·고양이: 간식 후원 ----------
+// 5분마다 50초 동안 강아지나 고양이 한 마리가 산책로로 걸어와 앉았다가 돌아간다. 시계로 정해서 모두 같은 때 같은 동물을 본다(서버 필요 없음).
+// 누르면 간식 후원 창. 후원 주소는 Render 환경 변수 DONATE_URL(서버가 페이지에 끼워 줌), 없으면 "준비 중"
+const DONATE_URL = /*HN_DONATE*/"";
+const PET_CYCLE = 300, PET_SHOW = 50;
+const PETS = [{ kind: "dog", name: "몽이", face: "🐶", body: "#e8c79a", ear: "#b8875a", say: "멍!" }, { kind: "cat", name: "나비", face: "🐱", body: "#f0a75e", ear: "#d9883f", say: "냐옹~" },
+  { kind: "dog", name: "콩이", face: "🐶", body: "#f5f0e6", ear: "#c9a27a", say: "멍멍!" }, { kind: "cat", name: "까미", face: "🐱", body: "#4a4550", ear: "#2e2a33", say: "냥!" }];
+let petHappy = 0, petHearts = [];
+function petNow() {
+  const sec = Date.now() / 1000 + 120, id = Math.floor(sec / PET_CYCLE), at = sec % PET_CYCLE;
+  if (at > PET_SHOW && performance.now() > petForceUntil) return null;
+  const h = (id * 2654435761 >>> 0) % 1000, pet = PETS[h % PETS.length], d = h % 2 ? 1 : -1;   // 회차마다 무작위(모두 같은 결과)
+  const a = at > PET_SHOW ? (performance.now() - petForceAt) / 1000 : at;
+  const tx = W * (h % 3 === 0 ? .26 : h % 3 === 1 ? .72 : .36), from = d > 0 ? -30 : W + 30, walkIn = 7, walkOut = 7;
+  let x, state;
+  if (a < walkIn) { x = from + (tx - from) * (a / walkIn); state = "walk"; }
+  else if (a < PET_SHOW - walkOut) { x = tx; state = "sit"; }
+  else { x = tx + (d > 0 ? 1 : -1) * (a - (PET_SHOW - walkOut)) / walkOut * (W * .6); state = "walk"; }
+  return { pet, x, y: H * (Y.path0 + Y.path1) / 2 + 2 * U, d: state === "walk" && a >= PET_SHOW - walkOut ? d : a < walkIn ? d : 1, state, a };
+}
+let petForceUntil = 0, petForceAt = 0;   // 시험용: petForceAt = performance.now(); petForceUntil = petForceAt + 50000
+function drawPet(t, dt) {
+  const P = petNow(); if (!P) return;
+  const { pet, x, y, d, state } = P, s = scaleAt(y) * 1.8, cat = pet.kind === "cat";
+  const hop = state === "walk" ? Math.abs(Math.sin(t * 9)) * 1.5 * s : performance.now() < petHappy ? Math.abs(Math.sin(t * 10)) * 4 * s : 0;
+  cx.save(); cx.translate(x, y - hop); cx.scale(d, 1);
+  cx.fillStyle = "rgba(0,0,0,.25)"; cx.beginPath(); cx.ellipse(0, hop + 1 * s, 9 * s, 2.2 * s, 0, 0, TAU); cx.fill();
+  const wag = Math.sin(t * (performance.now() < petHappy ? 18 : 6)) * .5;
+  cx.strokeStyle = pet.ear; cx.lineWidth = (cat ? 1.6 : 2.2) * s; cx.lineCap = "round";                         // 꼬리
+  cx.beginPath(); cx.moveTo(-6 * s, -5 * s); cat ? cx.quadraticCurveTo(-12 * s, -8 * s + wag * 3 * s, -10 * s, -15 * s) : cx.quadraticCurveTo(-10 * s, -9 * s, -10 * s + wag * 3 * s, -11 * s); cx.stroke();
+  cx.fillStyle = pet.body;
+  if (state === "sit") { cx.beginPath(); cx.ellipse(-1 * s, -5 * s, 6.5 * s, 5.5 * s, 0, 0, TAU); cx.fill(); }          // 몸
+  else { cx.beginPath(); cx.ellipse(-1 * s, -6 * s, 8 * s, 4.2 * s, 0, 0, TAU); cx.fill(); const st = Math.sin(t * 9) * 1.5 * s; cx.fillRect(-6 * s + st, -3 * s, 2 * s, 3.5 * s); cx.fillRect(3 * s - st, -3 * s, 2 * s, 3.5 * s); }
+  cx.beginPath(); cx.arc(6 * s, -11 * s, 5 * s, 0, TAU); cx.fill();                                                      // 머리
+  cx.fillStyle = pet.ear;
+  if (cat) { for (const ex of [3, 8.5]) { cx.beginPath(); cx.moveTo((ex - 2.4) * s, -14 * s); cx.lineTo(ex * s, -19 * s); cx.lineTo((ex + 2.4) * s, -14 * s); cx.fill(); } }
+  else { cx.beginPath(); cx.ellipse(2.2 * s, -11 * s, 1.8 * s, 3.6 * s, .3, 0, TAU); cx.fill(); cx.beginPath(); cx.ellipse(9.8 * s, -11 * s, 1.8 * s, 3.6 * s, -.3, 0, TAU); cx.fill(); }
+  const blink = Math.sin(t * 1.3) > .97;
+  cx.fillStyle = "#2a1e18"; if (blink) { cx.fillRect(3.6 * s, -11.6 * s, 1.6 * s, .5 * s); cx.fillRect(7.4 * s, -11.6 * s, 1.6 * s, .5 * s); } else { cx.beginPath(); cx.arc(4.4 * s, -11.4 * s, .9 * s, 0, TAU); cx.arc(8.2 * s, -11.4 * s, .9 * s, 0, TAU); cx.fill(); }
+  cx.beginPath(); cx.arc(6.3 * s, -9.4 * s, .8 * s, 0, TAU); cx.fill();                                                  // 코
+  cx.fillStyle = "rgba(255,130,140,.55)"; cx.beginPath(); cx.arc(3.2 * s, -9.2 * s, 1 * s, 0, TAU); cx.arc(9.4 * s, -9.2 * s, 1 * s, 0, TAU); cx.fill();   // 볼
+  cx.restore();
+  if (state === "sit") {                                                                                                // 이름표 + 말풍선
+    const by = y - 26 * s + Math.sin(t * 2) * 1.2 * s, label = `${pet.face} ${pet.name} · 간식 줄래요?`;
+    cx.font = `600 ${Math.max(11, 7 * s)}px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`; cx.textAlign = "center";
+    const lw = cx.measureText(label).width + 14, lx = Math.max(lw / 2 + 6, Math.min(W - lw / 2 - 6, x));
+    cx.fillStyle = "rgba(255,244,230,.95)"; cx.beginPath(); cx.roundRect ? cx.roundRect(lx - lw / 2, by - 10 * s, lw, 13 * s, 7 * s) : cx.rect(lx - lw / 2, by - 10 * s, lw, 13 * s); cx.fill();
+    cx.fillStyle = "#6a4a30"; cx.fillText(label, lx, by - .5 * s);
+  }
+  for (let i = petHearts.length - 1; i >= 0; i--) { const h = petHearts[i]; h.age += dt; if (h.age > 1.6) { petHearts.splice(i, 1); continue; } cx.globalAlpha = 1 - h.age / 1.6; cx.font = `${14 * U}px serif`; cx.fillText(h.e, x + h.dx * U, y - 30 * s - h.age * 30 * U); cx.globalAlpha = 1; }
+  P.s = s; drawPet.last = P;
+}
+function onPet(px, py) { const P = petNow(); if (!P) return false; const s = scaleAt(P.y) * 1.8; return Math.abs(px - P.x) < 22 * s && py > P.y - 40 * s && py < P.y + 6 * s; }
+let petAmt = 3000;
+function openPet() {
+  const P = petNow(); if (!P) return; const { pet } = P;
+  $("petFace").textContent = pet.face; $("petTitle").textContent = `${pet.name}에게 간식 주기`;
+  $("petMsg").innerHTML = DONATE_URL ? "한강 돗자리는 무료로 운영돼요.<br>간식 한 번이 서버를 하루 더 켜 줘요 🐾" : `후원 창구는 준비 중이에요.<br>쓰다듬어만 줘도 ${pet.name}는 행복해요 🐾`;
+  $("petGo").classList.toggle("off", !DONATE_URL); $("petGo").textContent = DONATE_URL ? `${petAmt.toLocaleString()}원 간식 주기` : "준비 중이에요";
+  $("petQR").classList.remove("on"); $("petQR").textContent = "";
+  $("petBox").classList.add("on"); petBurst(pet.kind === "cat" ? "💕" : "💛");
+}
+function petBurst(e) { petHappy = performance.now() + 2500; for (let i = 0; i < 5; i++) petHearts.push({ e, dx: (Math.random() - .5) * 30, age: -i * .12 }); }
+$("petBox").querySelectorAll("[data-amt]").forEach(b => b.onclick = () => {
+  petAmt = +b.dataset.amt; $("petBox").querySelectorAll("[data-amt]").forEach(x => x.classList.toggle("sel", x === b));
+  if (DONATE_URL) $("petGo").textContent = `${petAmt.toLocaleString()}원 간식 주기`;
+});
+$("petGo").onclick = () => {
+  const P = petNow(), name = P ? P.pet.name : "친구";
+  if (!DONATE_URL) return toast("후원 창구는 준비 중이에요. 마음만으로도 고마워요 🐾", 2600);
+  const phone = matchMedia("(pointer: coarse)").matches;
+  if (phone) { window.open(DONATE_URL, "_blank", "noopener"); }
+  else {                                                                                                                 // PC: 폰 카메라로 찍을 QR
+    const box = $("petQR"); box.classList.add("on"); box.textContent = "";
+    const s2 = document.createElement("script"); s2.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+    s2.onload = () => { try { new QRCode(box, { text: DONATE_URL, width: 150, height: 150 }); } catch { box.textContent = DONATE_URL; } };
+    s2.onerror = () => { box.textContent = DONATE_URL; }; window.QRCode ? s2.onload() : document.head.appendChild(s2);
+  }
+  petBurst("🦴"); toast(`${P ? P.pet.say : "멍!"} ${name}가 꼬리를 흔들어요. 고마워요 💛`, 3500);
+};
+$("petPat").onclick = () => { const P = petNow(); petBurst("💗"); $("petBox").classList.remove("on"); if (P) toast(`${P.pet.say} ${P.pet.name}가 좋아해요`, 2200); };
+$("petClose").onclick = () => $("petBox").classList.remove("on");
+
 // ---------- 루프 ----------
 let last = performance.now();
 function frame(now) {
@@ -1552,11 +1618,10 @@ function frame(now) {
   drawAurora(t, dt);
   drawFireworks(t, dt);
   drawLanterns(t, dt);
-  drawPlane(t, dt);
   const mine = chars.get(me), picking = canPick();
   const glowBase = !picking ? 0 : mine.state === "sit" ? .2 : .6;
   seats.forEach((s, i) => drawMat(s, glowBase && !seatTaken(i) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
-  drawPaperBoats(t, dt); drawMailbox(t); drawBoard(t);
+  drawPaperBoats(t, dt); drawMailbox(t); drawBoard(t); drawPet(t, dt);
   for (const c of chars.values()) stepChar(c, dt);
   [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
   drawAim(t);
@@ -1608,9 +1673,9 @@ function connect() {
     else if (m.t === "adminHere") adminOn = m.on;                                         // 알림 없이 오로라만
     else if (m.t === "say") { const c = chars.get(m.id); if (c) { const lines = sayLines(m.text); c.say = { lines, at: performance.now(), dur: Math.max(8000, Math.ceil(lines.length / 5) * 5000 + 1000) }; } }
     else if (m.t === "notice") showNotice(m.text);
-    else if (m.t === "feedbackOk") { $("askBox").classList.remove("on"); if (pp) { pp.hold = false; pp.away = pp.age; } toast("✈️ 비행기가 운영자에게 꼭 전해 줄게요. 고마워요!", 3800); }
+    else if (m.t === "feedbackOk") { $("askBox").classList.remove("on"); toast("📝 운영자에게 꼭 전해 줄게요. 고마워요!", 3800); }
     else if (m.t === "feedbackBad") toast(m.why === "bad" ? "욕설이나 야한 말은 쓸 수 없어요. 고운 말로 적어 주세요" : m.why === "wait" ? "1분에 한 번, 하루 다섯 번까지 보낼 수 있어요" : "한 줄이라도 적어 주세요", 2800);
-    else if (m.t === "letter") { cacheLetters([m.f]); letterCount = m.n; syncInboxBtn(); if ($("inbox").classList.contains("on")) renderInbox(); else toast("✈️ 바라는 점이 새로 왔어요", 2500); }
+    else if (m.t === "letter") { cacheLetters([m.f]); letterCount = m.n; syncInboxBtn(); if ($("inbox").classList.contains("on")) renderInbox(); else toast("📝 바라는 점이 새로 왔어요", 2500); }
     else if (m.t === "restart") toast("잠깐 새 단장 중이에요. 자리는 그대로 돌아와요", 0);
     else if (m.t === "leave") removeChar(m.id);
     else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
@@ -1670,7 +1735,7 @@ function buildActs() {
 // 운영자 버튼: 분수·유성우 바로 켜기 (서버가 운영자인지 다시 확인)
 function buildAdmin() {
   const bar = $("acts"), sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
-  for (const [id, icon, name] of [["say", "💬", "말하기"], ["notice", "📢", "공지"], ["inbox", "✈️", "바라는 점"], ["fountain", "⛲", "분수"], ["meteor", "🌠", "유성우"]] ) {
+  for (const [id, icon, name] of [["say", "💬", "말하기"], ["notice", "📢", "공지"], ["inbox", "📝", "바라는 점"], ["fountain", "⛲", "분수"], ["meteor", "🌠", "유성우"]] ) {
     const b = document.createElement("button"); b.className = "admin"; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", "운영자 " + name);
     b.onclick = () => {
       if (id === "say" || id === "notice") return openSay(id);
@@ -1682,7 +1747,7 @@ function buildAdmin() {
   $("nickIn").maxLength = $("nickEd").maxLength = 12; $("wishEd").maxLength = 40;      // 운영자는 길게
   syncInboxBtn(); bar.dispatchEvent(new Event("scroll"));
 }
-function syncInboxBtn() { const b = $("acts").querySelector('[aria-label="운영자 바라는 점"]'); if (b) b.innerHTML = `✈️<span>바라는 점${letterCount ? " " + letterCount : ""}</span>`; }
+function syncInboxBtn() { const b = $("acts").querySelector('[aria-label="운영자 바라는 점"]'); if (b) b.innerHTML = `📝<span>바라는 점${letterCount ? " " + letterCount : ""}</span>`; }
 function syncActs() {
   const c = chars.get(me), a = c ? c.act : "sit";
   $("actp").querySelectorAll("button[data-act]").forEach(b => b.classList.toggle("sel", b.dataset.act === a));

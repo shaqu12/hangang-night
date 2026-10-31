@@ -77,7 +77,9 @@ function badText(text) {
     return flats.some(f => MIND_BAD.some(b => f.includes(b))) || (cho && MIND_BAD_CHO.some(b => cho.includes(b)));
   });
 }
-const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8").replace("/*HN_BAD*/[]", JSON.stringify(MIND_BAD)).replace("/*HN_BAD_CHO*/[]", JSON.stringify(MIND_BAD_CHO));
+// 후원 주소(카카오페이 송금 링크 등): Render 환경 변수 DONATE_URL. https 주소만 받는다. 없으면 페이지에 "준비 중"
+const DONATE_URL = /^https:\/\/[^\s"'<>\\]+$/.test(process.env.DONATE_URL || "") ? process.env.DONATE_URL : "https://qr.kakaopay.com/Ej7ooGTO1";   // 기본: 운영자 카카오페이 송금 링크
+const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8").replace("/*HN_BAD*/[]", JSON.stringify(MIND_BAD)).replace("/*HN_BAD_CHO*/[]", JSON.stringify(MIND_BAD_CHO)).replace('/*HN_DONATE*/""', JSON.stringify(DONATE_URL));
 const ogImage = fs.readFileSync(path.join(__dirname, "og.jpg"));
 const server = http.createServer((req, res) => {
   if (req.url === "/health") { res.writeHead(200); return res.end("ok"); }
