@@ -85,7 +85,7 @@
   #fbBox button { border-color: #e2d5b8; color: #7a6a58; }
   #fbBox .btns button.on { background: #c94a3f; color: #fff; }
   #fbBox .btns { flex-direction: column; } #fbBox .btns button { min-height: 46px; font-size: 15px; }
-  #fbBox .btns #fbSelf { background: #e9e0cb; color: #4d4033; } #fbBox .btns #fbHear { background: #c94a3f; color: #fff; font-weight: 700; }
+  #fbBox .btns #fbSelf, #fbBox .btns #fbShare { background: #e9e0cb; color: #4d4033; } #fbBox .btns #fbHear { background: #c94a3f; color: #fff; font-weight: 700; }
   #fbBox #fbCancel { border: 0; min-height: 28px; font-size: 13px; color: #9a8a76; }
   #replyBox { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.92); width: min(320px, calc(100vw - 32px)); padding: 20px 20px 14px; border-radius: 20px; background: #f6eedb; color: #3b2f25; box-shadow: 0 12px 40px rgba(0,0,0,.5); display: none; flex-direction: column; gap: 12px; opacity: 0; transition: opacity .5s, transform .5s; z-index: 6; }
   #replyBox.on { display: flex; } #replyBox.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -127,6 +127,12 @@
   #petBox .go { all: unset; cursor: pointer; align-self: center; padding: 6px 16px; border-radius: 999px; background: #f6e6d2; color: #8a6a52; font-size: 12.5px; font-weight: 600; }
   #petBox #petClose { all: unset; cursor: pointer; align-self: center; padding: 4px 12px; font-size: 13px; color: #a8896e; }
   #petQR { display: none; justify-content: center; } #petQR.on { display: flex; } #petQR canvas, #petQR img { width: 150px; height: 150px; background: #fff; padding: 8px; border-radius: 12px; }
+  #worryBox { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); width: min(320px, calc(100vw - 32px)); padding: 18px 16px 14px; border-radius: 20px; background: #eeeaf8; color: #2f2a45; box-shadow: 0 12px 40px rgba(0,0,0,.45); display: none; flex-direction: column; gap: 10px; text-align: center; z-index: 6; }
+  #worryBox.on { display: flex; } #worryBox b { font-size: 14px; color: #6a5f8f; } #worryBox p { margin: 0; font-size: 16px; line-height: 1.65; word-break: keep-all; white-space: pre-wrap; }
+  #worryBox .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } #worryBox .grid button { all: unset; cursor: pointer; padding: 10px 4px; border-radius: 14px; background: #fff; font-size: 14px; font-weight: 600; color: #3a3355; display: grid; gap: 2px; }
+  #worryBox .grid button em { font-style: normal; font-size: 11px; color: #8a80aa; font-weight: 400; } #worryBox .grid button.sent { background: #d9d0f3; } #worryBox .grid.done button:not(.sent) { opacity: .45; }
+  #worryBox small { color: #8a80aa; font-size: 11.5px; } #worryBox .x { all: unset; cursor: pointer; align-self: center; padding: 4px 12px; font-size: 13px; color: #8a80aa; }
+  #together { display: block; font-size: 11px; color: var(--dim); font-weight: 400; }
   #notice { position: fixed; left: 50%; transform: translateX(-50%); top: calc(max(12px, env(safe-area-inset-top)) + 56px); width: min(440px, calc(100vw - 32px)); padding: 12px 40px 12px 14px; border-radius: 16px; background: rgba(40,32,12,.92); border: 1px solid rgba(245,200,76,.7); box-shadow: 0 8px 30px rgba(0,0,0,.45); color: #fff6dc; display: none; z-index: 7; font-size: 14px; line-height: 1.6; }
   #notice.on { display: block; } #notice b { color: #f5c84c; font-size: 13px; display: block; margin-bottom: 2px; }
   #notice div { max-height: 38vh; overflow-y: auto; white-space: pre-wrap; word-break: keep-all; }
@@ -145,7 +151,7 @@
 <body>
 <canvas id="cv"></canvas>
 <div id="top">
-  <div class="pill">🌉 <span><span id="roomName">한강</span><small id="rest"></small></span></div>
+  <div class="pill">🌉 <span><span id="roomName">한강</span><small id="rest"></small><small id="together"></small></span></div>
   <div class="pill"><span>👤 <b id="cnt">0</b></span><button id="snd" aria-label="소리">🔈</button></div>
 </div>
 <div id="toast" class="pill"></div>
@@ -160,14 +166,15 @@
 <div id="drag"></div>
 <div id="acts" class="pill"></div>
 <div id="fwInfo" class="pill"></div>
-<div id="wishBox" class="pill"><b>🏮 소원 풍등</b><small>한 줄 소원을 적으면 모두에게 잠깐 보여요 (15자, 비워도 돼요)</small><div><input id="wishEd" maxlength="15" autocomplete="off" enterkeyhint="send" aria-label="소원" placeholder="예: 내일은 푹 자기"></div><div class="btns"><button id="wishCancel">닫기</button><button id="wishSend" class="on">띄우기</button></div></div>
+<div id="wishBox" class="pill"><b>🎈 소원 풍선</b><small>한 줄 소원을 적으면 모두에게 잠깐 보여요 (15자, 비워도 돼요)</small><div><input id="wishEd" maxlength="15" autocomplete="off" enterkeyhint="send" aria-label="소원" placeholder="예: 내일은 푹 자기"></div><div class="btns"><button id="wishCancel">닫기</button><button id="wishSend" class="on">띄우기</button></div></div>
 <div id="sayBox" class="pill"><b id="sayTitle">💬 말하기 <small>운영자만</small></b><div><textarea id="sayEd" rows="3" aria-label="말할 내용"></textarea></div><div class="btns"><button id="sayCancel">닫기</button><button id="saySend" class="on">말하기</button></div></div>
-<div id="fbBox"><b>💌 나에게 하고 싶은 말</b><small>가까운 사람에게는 못 한 말, 여기엔 적어도 괜찮아요.<br>적은 글은 이 폰 밖으로 나가지 않고, 저장되지도 않아요.</small><div><textarea id="fbEd" maxlength="300" rows="5" aria-label="하고 싶은 말" placeholder="오늘 하고 싶었던 말…"></textarea></div><div class="btns"><button id="fbHear">💌 듣고 싶은 말 받기</button><button id="fbSelf">🍃 혼잣말로 강물에 흘려보내기</button><div class="hint">💌 한강 우체통이 바로 답장해 줘요 · 🍃 답 없이 흘려보내요</div><button id="fbCancel">다음에</button></div>
+<div id="fbBox"><b>💌 나에게 하고 싶은 말</b><small>가까운 사람에게는 못 한 말, 여기엔 적어도 괜찮아요.<br>적은 글은 이 폰 밖으로 나가지 않고, 저장되지도 않아요.</small><div><textarea id="fbEd" maxlength="300" rows="5" aria-label="하고 싶은 말" placeholder="오늘 하고 싶었던 말…"></textarea></div><div class="btns"><button id="fbHear">💌 듣고 싶은 말 받기</button><button id="fbShare">🎈 익명으로 함께 나누기</button><button id="fbSelf">🍃 혼잣말로 강물에 흘려보내기</button><div class="hint">💌 우체통이 바로 답장 · 🎈 옆 사람들이 공감 버튼으로 위로(이름 없이, 1분 뒤 사라짐) · 🍃 답 없이 흘려보내기</div><button id="fbCancel">다음에</button></div>
 <div class="tones"><b style="font-size:14.5px">어떤 말이 듣고 싶어요?</b><div class="grid"><button data-tone="comfort">🤗 위로<em>괜찮다는 말</em></button><button data-tone="cheer">💪 응원<em>힘이 나는 말</em></button><button data-tone="praise">👏 잘했다는 말<em>수고했다는 말</em></button><button data-tone="listen">👂 그냥 들어줘<em>조언 없이</em></button></div><button id="toneBack">← 다시 쓰기</button></div></div>
 <div id="replyBox" role="dialog" aria-label="답장"><b>💌 한강 우체통의 답장</b><p id="replyText"></p><div class="sign">— 한강에서</div><div class="act" id="replyAct"></div><div id="breath"><i></i><span>천천히 들이쉬고…</span></div><div class="help" id="replyHelp">혼자 견디지 않아도 돼요. 지금 바로 이야기를 들어 줄 사람이 있어요.<br>📞 <a href="tel:109">자살예방상담 109</a> (24시간, 무료)<br>💬 청소년이라면 <a href="tel:1388">1388</a></div><div class="row2"><button id="replyAgain">🔄 다른 말 듣기</button><button id="breathBtn">🌬️ 같이 숨 쉬기</button></div><small>이 답장도 어디에도 남지 않아요</small><button id="replyOk">고마워요</button></div>
 <div id="askBox" role="dialog" aria-label="바라는 점"><b>📝 한강에 바라는 점</b><small>이용하면서 필요한 것, 불편한 점, 하고 싶은 말을 들려주세요.<br>운영자에게 꼭 전해 줄게요.</small><div class="chips"><button>이런 기능이 있으면 좋겠어요: </button><button>이건 좀 불편했어요: </button><button>좋았던 점: </button></div><textarea id="askEd" maxlength="300" rows="4" aria-label="바라는 점" placeholder="예: 친구랑 같은 방에 들어가고 싶어요"></textarea><div class="btns"><button id="askCancel">다음에</button><button id="askSend" class="on">보내기</button></div></div>
 <div id="inbox"><div class="head"><b>📝 바라는 점</b><button id="inboxClose">닫기</button></div><small id="inboxNote"></small><div id="inboxList"></div></div>
 <div id="petBox" role="dialog" aria-label="강아지 고양이"><div class="face" id="petFace">🐶</div><b id="petTitle">몽이를 만났어요!</b><small id="petMsg">살살 쓰다듬어 주세요 🐾</small><button class="pat" id="petPat">🤚 쓰다듬기</button><div class="give"><small>서버비에 보태고 싶다면</small><div class="snacks"><button data-amt="1000">🦴 1,000</button><button data-amt="3000" class="sel">🍖 3,000</button><button data-amt="5000">🎂 5,000</button></div><div id="petQR"></div><button class="go" id="petGo">간식 주기</button></div><button id="petClose">닫기</button></div>
+<div id="worryBox" role="dialog" aria-label="누군가의 고민"><b id="worryHead">💭 누군가의 고민</b><p id="worryText"></p><div class="grid" id="worryBtns"></div><small id="worryNote">이름은 보이지 않아요 · 마음만 전해져요</small><button class="x" id="worryClose">닫기</button></div>
 <div id="notice" role="status"><b>📢 운영자 공지</b><div id="noticeText"></div><button id="noticeClose" aria-label="닫기">✕</button></div>
 <div id="nickBox" class="pill"><b>닉네임 바꾸기</b><div><input id="nickEd" maxlength="5" autocomplete="off" enterkeyhint="done" aria-label="새 닉네임"><button id="nickEdDice" aria-label="다른 이름">🎲</button></div><div class="btns"><button id="nickCancel">닫기</button><button id="nickSave" class="on">바꾸기</button></div></div>
 <div id="gate"><div class="box">
@@ -911,6 +918,7 @@ function seatAt(px, py) {
 }
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
+  { const w = !aiming && worryAt(e.clientX, e.clientY); if (w) return openWorry(w); }        // 고민 풍선: 공감 보내기
   if (!aiming && onPet(e.clientX, e.clientY)) return openPet();                         // 산책로 강아지·고양이: 간식 후원
   if (!aiming && onBoard(e.clientX, e.clientY)) return openAsk();                       // 우체통 옆 게시판: 바라는 점
   if (!aiming && onMailbox(e.clientX, e.clientY)) return openBox("fb");                // 나에게 하고 싶은 말
@@ -1183,8 +1191,8 @@ $("nickSave").onclick = () => {
 $("nickEd").addEventListener("keydown", e => { if (e.key === "Enter") $("nickSave").click(); });
 function onMyChar(px, py) { const c = chars.get(me); if (!c) return false; const s = scaleAt(c.y); return Math.abs(px - c.x) < 18 * s && py > c.y - 62 * s && py < c.y + 4 * s; }
 
-// ---------- 머무는 재미: 소원 풍등, 하트, 쉬는 시간, 운영자 오로라 ----------
-// 소원 풍등: 한 줄 소원을 적어 띄우면 내 자리에서 천천히 하늘로 올라가고, 처음 9초는 소원 글씨가 같이 보인다(모두에게). 운영자가 있으면 금빛
+// ---------- 머무는 재미: 소원 풍선, 하트, 쉬는 시간, 운영자 오로라 ----------
+// 소원 풍선: 한 줄 소원을 적어 띄우면 내 자리에서 천천히 하늘로 올라가고, 처음 9초는 소원 글씨가 같이 보인다(모두에게). 운영자가 있으면 금빛
 const lanterns = [], hearts = [];
 let adminOn = false, adminFade = 0, restStart = 0, restMarks = new Set(), lastSeat = null, lastAct = "sit", restoring = false;
 const lanternSprite = (() => {
@@ -1196,11 +1204,30 @@ const lanternSprite = (() => {
   g.fillStyle = core; g.fillRect(12, 34, 24, 24);
   return c;
 })();
+// LED 풍선: 한강공원 밤에 파는 은은하게 빛나는 풍선. 동그라미·하트·별 세 가지, 파스텔·네온 색, 아래로 끈이 흔들린다
+const BALLOON_COLS = ["255,140,190", "130,200,255", "255,215,120", "160,240,200", "200,160,255", "255,170,120"];
+function balloonPath(shape, w, h) {
+  cx.beginPath();
+  if (shape === 1) { cx.moveTo(0, h * .45); cx.bezierCurveTo(-w * 1.1, -h * .05, -w * .55, -h * .75, 0, -h * .32); cx.bezierCurveTo(w * .55, -h * .75, w * 1.1, -h * .05, 0, h * .45); }   // 하트
+  else if (shape === 2) { for (let i = 0; i < 10; i++) { const r = i % 2 ? w * .45 : w * 1.05, an = -Math.PI / 2 + i * Math.PI / 5; cx.lineTo(Math.cos(an) * r, Math.sin(an) * r * 1.02); } cx.closePath(); }   // 별
+  else cx.ellipse(0, 0, w * .82, h * .5, 0, 0, TAU);                                                                    // 동그라미
+}
+function drawBalloon(x, y, sc, col, shape, a, t, ph) {
+  const w = 10 * sc, h = 13 * sc, sway = Math.sin(t * 1.6 + ph) * 3 * sc;
+  cx.strokeStyle = `rgba(230,230,245,${.55 * a})`; cx.lineWidth = Math.max(.6, .5 * sc);                               // 끈
+  cx.beginPath(); cx.moveTo(x, y + h * .5); cx.quadraticCurveTo(x + sway, y + h * 1.1, x - sway * .5, y + h * 1.7); cx.stroke();
+  cx.save(); cx.translate(x, y); cx.rotate(Math.sin(t * 1.2 + ph) * .06); cx.globalAlpha = a;
+  const g = cx.createRadialGradient(-w * .3, -h * .25, 0, 0, 0, w * 1.1);
+  g.addColorStop(0, "rgba(255,255,255,.95)"); g.addColorStop(.35, `rgba(${col},.95)`); g.addColorStop(1, `rgba(${col},.75)`);
+  cx.fillStyle = g; balloonPath(shape, w, h); cx.fill();
+  cx.fillStyle = `rgba(${col},.95)`; cx.beginPath(); cx.moveTo(-1.4 * sc, h * .5); cx.lineTo(1.4 * sc, h * .5); cx.lineTo(0, h * .5 - 1.6 * sc); cx.fill();   // 매듭
+  cx.restore(); cx.globalAlpha = 1;
+}
 function launchLantern(m) {
   const c = chars.get(m.id); if (!c) return;
   const s = scaleAt(c.y);
   if (lanterns.length >= 24) lanterns.shift();
-  lanterns.push({ x: c.x, y: c.y - 30 * s, s0: s * 1.1, age: 0, w: m.w || "", gold: !!m.gold, nick: c.nick, ph: Math.random() * 6, drift: (Math.random() - .5) * 18 * U, mine: m.id === me });
+  lanterns.push({ col: m.gold ? "255,215,110" : BALLOON_COLS[Math.random() * BALLOON_COLS.length | 0], shape: Math.random() * 3 | 0, x: c.x, y: c.y - 30 * s, s0: s * 1.1, age: 0, w: m.w || "", gold: !!m.gold, nick: c.nick, ph: Math.random() * 6, drift: (Math.random() - .5) * 18 * U, mine: m.id === me });
 }
 function drawLanterns(t, dt) {
   const top = H * .04;
@@ -1213,16 +1240,15 @@ function drawLanterns(t, dt) {
     const w = 14 * sc, h = 18.5 * sc;
     cx.globalCompositeOperation = "lighter";
     const g = cx.createRadialGradient(x, y, 0, x, y, 30 * sc);
-    g.addColorStop(0, L.gold ? `rgba(255,215,110,${.5 * a * fl})` : `rgba(255,170,90,${.42 * a * fl})`); g.addColorStop(1, "rgba(255,170,90,0)");
+    g.addColorStop(0, `rgba(${L.col},${.42 * a * fl})`); g.addColorStop(1, `rgba(${L.col},0)`);
     cx.fillStyle = g; cx.fillRect(x - 30 * sc, y - 30 * sc, 60 * sc, 60 * sc);
     cx.globalCompositeOperation = "source-over";
-    cx.globalAlpha = a; cx.drawImage(lanternSprite, x - w / 2, y - h / 2, w, h); cx.globalAlpha = 1;
-    if (L.gold) { cx.strokeStyle = `rgba(255,225,140,${.7 * a})`; cx.lineWidth = .8 * U; cx.strokeRect(x - w / 2, y - h / 2, w, h * .9); }
+    drawBalloon(x, y, sc, L.col, L.shape, a, t, L.ph);
     if (L.age < 9 && (L.w || L.mine)) {                                                    // 소원 글씨
       const ta = Math.min(1, L.age / .6, (9 - L.age) / 1.5);
       cx.font = `600 ${Math.max(12, 11 * U)}px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`; cx.textAlign = "center";
       cx.shadowColor = "rgba(0,0,0,.65)"; cx.shadowBlur = 6;
-      cx.fillStyle = `rgba(255,236,200,${ta})`; cx.fillText(L.w ? `“${L.w}”` : "소원 풍등", Math.max(70, Math.min(W - 70, x)), y + h / 2 + 14 * U);
+      cx.fillStyle = `rgba(255,236,200,${ta})`; cx.fillText(L.w ? `“${L.w}”` : "소원 풍선", Math.max(70, Math.min(W - 70, x)), y + h / 2 + 14 * U);
       cx.fillStyle = `rgba(220,215,240,${.75 * ta})`; cx.font = `500 ${Math.max(10, 9 * U)}px sans-serif`; cx.fillText(`${L.nick}`, Math.max(70, Math.min(W - 70, x)), y + h / 2 + 26 * U);
       cx.shadowBlur = 0;
     }
@@ -1396,7 +1422,7 @@ const BODY = {
   listen: ["응, 듣고 있어요. 더 하고 싶은 말이 있으면 또 적어도 돼요.", "그랬구나. 그런 일이 있었구나.", "말해 줘서 고마워요. 아무 말 없이 옆에 있을게요.", "응. 그 마음 그대로 여기 두고 가요.", "많이 하고 싶었던 말이었겠어요. 다 들었어요.", "조용히 다 들었어요. 판단하지 않을게요.", "응, 그럴 수 있어요. 정말 그럴 수 있어.", "여기선 정답 같은 거 없어요. 그냥 들을게요."],
   happy: ["그 행복, 마음껏 누려요. 당신은 그럴 자격이 충분해요.", "좋은 일은 나눌수록 커진대요. 오늘 밤 별처럼 오래 반짝이길!", "이런 날을 위해 그동안 버텨 온 거예요. 정말 축하해요.", "그 기분 잊지 말고 꼭 기억해 둬요. 힘든 날 꺼내 볼 수 있게요."],
 };
-const ACT = ["🌊 10초만 화면 속 강물을 바라봐요. 아무 생각 안 해도 돼요.", "🙆 어깨를 귀까지 올렸다가 툭 떨어뜨려 봐요. 두 번만.", "💧 물 한 잔 마시고 와요. 몸이 편해야 마음도 따라와요.", "🏮 바라는 거 하나, 소원 풍등으로 띄워 봐요.", "🌙 오늘 잘한 일 하나만 떠올려 봐요. 아주 작은 거라도요.", "📱 오늘은 휴대폰을 조금 일찍 내려놓고 자요.", "🌬️ 아래 '같이 숨 쉬기'로 30초만 숨 골라 봐요.", "🛌 돗자리에 앉아 '눕기'를 누르고 잠깐 별을 봐요."];
+const ACT = ["🌊 10초만 화면 속 강물을 바라봐요. 아무 생각 안 해도 돼요.", "🙆 어깨를 귀까지 올렸다가 툭 떨어뜨려 봐요. 두 번만.", "💧 물 한 잔 마시고 와요. 몸이 편해야 마음도 따라와요.", "🎈 바라는 거 하나, 소원 풍선으로 띄워 봐요.", "🌙 오늘 잘한 일 하나만 떠올려 봐요. 아주 작은 거라도요.", "📱 오늘은 휴대폰을 조금 일찍 내려놓고 자요.", "🌬️ 아래 '같이 숨 쉬기'로 30초만 숨 골라 봐요.", "🛌 돗자리에 앉아 '눕기'를 누르고 잠깐 별을 봐요."];
 const pick = (a, not) => { const b = a.filter(x => !not || !not.includes(x)); return (b.length ? b : a)[Math.random() * (b.length ? b : a).length | 0]; };
 function mindReply(v, tone, last) {
   if (CRISIS.test(v)) return { text: pick(REPLIES.crisis), crisis: true, act: "" };
@@ -1410,7 +1436,7 @@ const closeWish = () => $("wishBox").classList.remove("on");
 let lastLanternSent = -1e9;
 $("wishCancel").onclick = closeWish;
 $("wishSend").onclick = () => {
-  if (performance.now() - lastLanternSent < 15000) { closeWish(); return toast("풍등은 15초에 하나씩 띄울 수 있어요", 2200); }
+  if (performance.now() - lastLanternSent < 15000) { closeWish(); return toast("풍선은 15초에 하나씩 띄울 수 있어요", 2200); }
   if (ws && ws.readyState === 1) { ws.send(JSON.stringify({ t: "lantern", w: $("wishEd").value.replace(/\s+/g, " ").trim() })); lastLanternSent = performance.now(); }
   closeWish();
 };
@@ -1579,9 +1605,13 @@ function drawPet(t, dt) {
 }
 function onPet(px, py) { const P = petNow(); if (!P) return false; const s = scaleAt(P.y) * 1.8; return Math.abs(px - P.x) < 22 * s && py > P.y - 40 * s && py < P.y + 6 * s; }
 let petAmt = 3000, petPats = 0;
+const petMem = () => { try { return JSON.parse(localStorage.getItem("hn-pets") || "{}"); } catch { return {}; } };
 function openPet() {
   const P = petNow(); if (!P) return; const { pet } = P;
-  petPats = 0; $("petFace").textContent = pet.face; $("petTitle").textContent = `${pet.name}를 만났어요!`; $("petMsg").textContent = "살살 쓰다듬어 주세요 🐾";
+  petPats = 0; $("petFace").textContent = pet.face;
+  const mem = petMem()[pet.name];                                                                                     // 전에 쓰다듬어 준 적이 있으면 알아본다(이 폰에만 저장)
+  $("petTitle").textContent = mem ? `${pet.name}가 알아봤어요!` : `${pet.name}를 만났어요!`;
+  $("petMsg").textContent = mem ? `지난번에 쓰다듬어 줬죠? 꼬리를 흔들며 다가와요 🐾 (${mem.pats}번 쓰다듬어 줌)` : "살살 쓰다듬어 주세요 🐾";
   $("petGo").textContent = `${petAmt.toLocaleString()}원 간식 주기`;
   $("petQR").classList.remove("on"); $("petQR").textContent = "";
   $("petBox").classList.add("on"); petBurst(pet.kind === "cat" ? "💕" : "💛");
@@ -1610,8 +1640,63 @@ $("petPat").onclick = () => {
   const P = petNow(); petBurst(["💗", "💕", "💞", "✨"][petPats % 4]);
   const f = $("petFace"); f.style.animation = "none"; void f.offsetWidth; f.style.animation = "";
   $("petMsg").textContent = P ? `${P.pet.say} ${P.pet.name}가 ${PAT_SAY[Math.min(petPats, PAT_SAY.length - 1)]}` : "💗"; petPats++;
+  if (P) { const m = petMem(), o = m[P.pet.name] || { pats: 0 }; o.pats++; o.last = Date.now(); m[P.pet.name] = o; try { localStorage.setItem("hn-pets", JSON.stringify(m)); } catch {} }
 };
 $("petClose").onclick = () => $("petBox").classList.remove("on");
+
+// ---------- 고민 풍선(함께 나누기) ----------
+// 쓴 사람이 고를 때만 이름 없이 같은 방 하늘에 보랏빛 풍선으로 1분 떠 있다(서버 메모리에만). 누르면 공감 4가지만 보낼 수 있고,
+// 공감을 받을수록 풍선이 밝아지고 조금씩 높이 올라가며 오래 머문다. 쓴 사람에게는 "누군가 곁에 있어요" 알림
+const CHEERS = [["🫂", "안아줄게요"], ["🤝", "나도 그랬어요"], ["💪", "응원해요"], ["🌙", "곁에 있어요"]];
+const worries = []; let worryOpen = null;
+function addWorry(w, mine) {
+  if (worries.some(x => x.id === w.id)) return;
+  const r = rng(w.id * 7919);
+  worries.push({ ...w, mine: !!mine, until: performance.now() + w.left, x: W * (.14 + r() * .72), y0: H * Y.S * (.3 + r() * .32), lift: 0, glow: 0, ph: r() * 6, age: 0, sent: -1 });
+}
+$("fbShare").onclick = () => {
+  const v = mindText(); if (v == null) return;
+  if (CRISIS.test(v)) { $("fbEd").value = ""; closeBox("fb"); mindNow = null; return showReply(pick(REPLIES.crisis), true); }   // 위험한 말은 나누지 않고 상담 안내
+  if ([...v].length > 120) return toast("함께 나누기는 120자까지예요. 조금만 줄여 주세요", 2600);
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "worry", text: v }));
+};
+function drawWorries(t, dt) {
+  const now = performance.now();
+  for (let i = worries.length - 1; i >= 0; i--) {
+    const w = worries[i]; w.age += dt; const left = (w.until - now) / 1000;
+    if (left <= 0) { worries.splice(i, 1); if (worryOpen === w) $("worryBox").classList.remove("on"); continue; }
+    w.glow = Math.max(0, w.glow - dt); const n = w.cheers.reduce((a, b) => a + b, 0);
+    const a = Math.min(1, w.age / 1.5, left / 3), x = w.x + Math.sin(w.age * .5 + w.ph) * 6 * U, y = w.y0 - w.lift + Math.sin(w.age * .9 + w.ph) * 3 * U;
+    w.lift += (Math.min(60, n * 6) * U - w.lift) * Math.min(1, dt * 1.5); w.cx = x; w.cy = y;
+    const sc = (2.4 + Math.min(.8, n * .08)) * U, bw = 14 * sc, bh = 18.5 * sc, fl = .85 + .15 * Math.sin(t * 6 + w.ph);
+    cx.globalCompositeOperation = "lighter";
+    const g = cx.createRadialGradient(x, y, 0, x, y, (34 + n * 3) * sc); g.addColorStop(0, `rgba(190,160,255,${(.4 + .25 * Math.min(1, n / 5) + .4 * Math.min(1, w.glow)) * a * fl})`); g.addColorStop(1, "rgba(190,160,255,0)");
+    cx.fillStyle = g; cx.fillRect(x - 60 * sc, y - 60 * sc, 120 * sc, 120 * sc); cx.globalCompositeOperation = "source-over";
+    drawBalloon(x, y, sc, "190,165,255", 0, a, t, w.ph); cx.globalAlpha = a;
+    cx.font = `600 ${Math.max(11, 10 * U)}px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`; cx.textAlign = "center";
+    cx.shadowColor = "rgba(0,0,0,.6)"; cx.shadowBlur = 5; cx.fillStyle = "rgba(240,232,255,.95)";
+    const lx = Math.max(60, Math.min(W - 60, x));
+    cx.fillText(w.mine ? "💭 내 고민" : "💭 누군가의 고민", lx, y - bh / 2 - 6 * U);
+    const tags = CHEERS.map((c, k) => w.cheers[k] ? c[0] + w.cheers[k] : "").filter(Boolean).join(" ");
+    cx.fillText(tags || (w.mine ? "" : "눌러서 마음 보내기"), lx, y + bh / 2 + 13 * U); cx.shadowBlur = 0; cx.globalAlpha = 1;
+  }
+}
+function worryAt(px, py) { return worries.find(w => w.cx != null && Math.abs(px - w.cx) < 34 * U && Math.abs(py - w.cy) < 34 * U); }
+function openWorry(w) {
+  worryOpen = w; $("worryHead").textContent = w.mine ? "💭 내 고민" : "💭 누군가의 고민"; $("worryText").textContent = w.text;
+  const box = $("worryBtns"); box.textContent = ""; box.classList.toggle("done", w.sent >= 0); box.style.display = w.mine ? "none" : "";
+  CHEERS.forEach(([e, label], k) => {
+    const b = document.createElement("button"); b.innerHTML = `${e} ${label}<em>${w.cheers[k] ? w.cheers[k] + "명" : ""}</em>`; if (w.sent === k) b.classList.add("sent");
+    b.onclick = () => { if (w.sent >= 0) return; w.sent = k; if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "cheer", w: w.id, k })); box.classList.add("done"); b.classList.add("sent"); $("worryNote").textContent = "마음이 전해졌어요 💜"; };
+    box.appendChild(b);
+  });
+  const n = w.cheers.reduce((a, b) => a + b, 0);
+  $("worryNote").textContent = w.mine ? (n ? `${n}명이 곁에 있어요 💜 이름은 서로 보이지 않아요` : "곧 누군가 마음을 보내 줄 거예요 · 1분 뒤 사라져요") : w.sent >= 0 ? "마음이 전해졌어요 💜" : "이름은 보이지 않아요 · 마음만 전해져요";
+  $("worryBox").classList.add("on");
+}
+$("worryClose").onclick = () => { worryOpen = null; $("worryBox").classList.remove("on"); };
+// 지금 함께 앉아 있는 사람 수
+setInterval(() => { let n = 0; for (const c of chars.values()) if (c.state === "sit" || c.state === "walk" && c.then === "sit") n++; $("together").textContent = n >= 2 ? `지금 ${n}명이 함께 앉아 있어요` : ""; }, 2000);
 
 // ---------- 루프 ----------
 let last = performance.now();
@@ -1623,6 +1708,7 @@ function frame(now) {
   drawAurora(t, dt);
   drawFireworks(t, dt);
   drawLanterns(t, dt);
+  drawWorries(t, dt);
   const mine = chars.get(me), picking = canPick();
   const glowBase = !picking ? 0 : mine.state === "sit" ? .2 : .6;
   seats.forEach((s, i) => drawMat(s, glowBase && !seatTaken(i) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
@@ -1648,6 +1734,7 @@ function connect() {
   ws.onmessage = ev => {
     const m = JSON.parse(ev.data);
     if (m.t === "init") {
+      worries.length = 0; for (const w of m.worries || []) addWorry(w, false);
       if (m.letters != null) letterCount = m.letters;
       if (m.notice) showNotice(m.notice);
       chars.clear(); me = m.you; hinted = false;
@@ -1678,6 +1765,9 @@ function connect() {
     else if (m.t === "adminHere") adminOn = m.on;                                         // 알림 없이 오로라만
     else if (m.t === "say") { const c = chars.get(m.id); if (c) { const lines = sayLines(m.text); c.say = { lines, at: performance.now(), dur: Math.max(8000, Math.ceil(lines.length / 5) * 5000 + 1000) }; } }
     else if (m.t === "notice") showNotice(m.text);
+    else if (m.t === "worry") { addWorry(m.w, m.mine); if (m.mine) { $("fbEd").value = ""; closeBox("fb"); toast("🎈 고민 풍선이 떠올랐어요. 이름은 보이지 않아요", 3500); } }
+    else if (m.t === "worryBad") toast(m.why === "wait" ? "함께 나누기는 3분에 한 번이에요" : m.why === "bad" ? "욕설이나 야한 말은 쓸 수 없어요. 고운 말로 적어 주세요" : m.why === "crisis" ? "이 마음은 혼자 견디지 않아도 돼요. 109(24시간)로 이야기해 주세요" : "한 줄이라도 적어 주세요", 3200);
+    else if (m.t === "cheer") { const w = worries.find(x => x.id === m.w); if (w) { w.cheers[m.k]++; w.until = performance.now() + m.left; w.glow = 1.5; if (worryOpen === w) openWorry(w); if (w.mine) toast(`${CHEERS[m.k][0]} 누군가 "${CHEERS[m.k][1]}" 하고 곁에 있어요`, 3500); } }
     else if (m.t === "feedbackOk") { $("askBox").classList.remove("on"); toast("📝 운영자에게 꼭 전해 줄게요. 고마워요!", 3800); }
     else if (m.t === "feedbackBad") toast(m.why === "bad" ? "욕설이나 야한 말은 쓸 수 없어요. 고운 말로 적어 주세요" : m.why === "wait" ? "1분에 한 번, 하루 다섯 번까지 보낼 수 있어요" : "한 줄이라도 적어 주세요", 2800);
     else if (m.t === "letter") { cacheLetters([m.f]); letterCount = m.n; syncInboxBtn(); if ($("inbox").classList.contains("on")) renderInbox(); else toast("📝 바라는 점이 새로 왔어요", 2500); }
@@ -1715,7 +1805,7 @@ function buildActs() {
     const o = !aiming; closePanels(); setAiming(o);
   };
   bar.appendChild(fb);
-  const lb = document.createElement("button"); lb.innerHTML = "🏮<span>소원 풍등</span>"; lb.setAttribute("aria-label", "소원 풍등");
+  const lb = document.createElement("button"); lb.innerHTML = "🎈<span>소원 풍선</span>"; lb.setAttribute("aria-label", "소원 풍선");
   lb.onclick = () => { if (aiming) setAiming(false); closePanels(); openWish(); };
   bar.appendChild(lb);
   const sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);

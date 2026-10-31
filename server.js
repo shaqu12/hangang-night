@@ -58,7 +58,7 @@ function saveFeedback(f) {
   for (const r of rooms) for (const o of r.users.values()) if (o.admin) send(o.ws, { t: "letter", f, n: feedback.length });
 }
 const isAdminKey = k => ADMIN_KEY.length >= 8 && typeof k === "string" && k.length === ADMIN_KEY.length && require("crypto").timingSafeEqual(Buffer.from(k), Buffer.from(ADMIN_KEY));
-const WISH_MAX = 15, LANTERN_GAP = 15000, HEART_GAP = 1500;   // 소원 풍등 글자 수·간격, 하트 간격
+const WISH_MAX = 15, LANTERN_GAP = 15000, HEART_GAP = 1500;   // 소원 풍선 글자 수·간격, 하트 간격
 const FW_KINDS = 5, FW_COLORS = 7;   // index.html FW_SHAPES·FW_HUES 길이와 같아야 함
 
 // "나에게 하고 싶은 말"은 서버로 오지 않고 폰 안에서만 거른다. 그래서 욕설·음란어 목록을 페이지에 끼워 준다.
@@ -131,11 +131,18 @@ const ipKey = ip => require("crypto").createHash("sha256").update(ip + day.date)
 const rooms = [];            // [{ no, users: Map<id, user> }]
 const ips = new Map();
 let nextId = 1;
+// 고민 풍선(함께 나누기): 쓴 사람이 고를 때만, 이름 없이 같은 방 하늘에 60초 떠 있다. 메모리에만 두고 저장·로그 없음.
+// 다른 사람은 정해진 공감 4가지만 보낼 수 있다(자유 댓글 없음). 공감 하나마다 10초 더, 최대 2분
+const WORRY_LEN = 60000, WORRY_MAX = 120000, CHEERS = 4;
+const CRISIS = /죽고\s*싶|죽을\s*것\s*같|죽어\s*버리|자살|사라지고\s*싶|없어지고\s*싶|살기\s*싫|살고\s*싶지\s*않|그만\s*살|끝내고\s*싶|목숨|뛰어\s*내리|자해|손목/;
+let nextWorry = 1;
+const pubWorry = (w, now) => ({ id: w.id, text: w.text, left: w.until - now, cheers: w.cheers });
+const liveWorries = room => { const now = Date.now(); room.worries = room.worries.filter(w => w.until > now); return room.worries; };
 const total = () => rooms.reduce((n, r) => n + r.users.size, 0);
 
 function pickRoom() {
   let r = rooms.find(r => r.users.size < CAP);
-  if (!r && rooms.length < MAX_ROOMS) { r = { no: rooms.length + 1, users: new Map(), fountainAt: 0 }; rooms.push(r); }
+  if (!r && rooms.length < MAX_ROOMS) { r = { no: rooms.length + 1, users: new Map(), fountainAt: 0, worries: [] }; rooms.push(r); }
   return r;
 }
 const adminHere = room => [...room.users.values()].some(o => o.admin);
@@ -172,7 +179,7 @@ wss.on("connection", (ws, req) => {
   u.nick = (u.admin ? cleanNick(asked, "free", 12) : cleanNick(asked)) || randNick();   // 운영자 닉네임은 12자까지, 거르지 않음
   room.users.set(u.id, u);
   ws.alive = true;
-  send(ws, { t: "init", you: u.id, admin: u.admin, letters: u.admin ? feedback.length : undefined, notice: lastNotice && Date.now() - lastNotice.at < 600000 ? lastNotice.text : undefined, adminHere: adminHere(room) || u.admin, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
+  send(ws, { t: "init", you: u.id, admin: u.admin, letters: u.admin ? feedback.length : undefined, notice: lastNotice && Date.now() - lastNotice.at < 600000 ? lastNotice.text : undefined, adminHere: adminHere(room) || u.admin, room: room.no, cap: CAP, emojis: EMOJIS, users: [...room.users.values()].map(pub), worries: liveWorries(room).map(w => pubWorry(w, Date.now())), fountain: Date.now() - room.fountainAt < FOUNTAIN_LEN ? (Date.now() - room.fountainAt) / 1000 : null });
   broadcast(room, { t: "join", user: pub(u) }, ws);
   if (u.admin) broadcast(room, { t: "adminHere", on: true, nick: u.nick }, ws);
   sendCounts();
@@ -201,7 +208,7 @@ wss.on("connection", (ws, req) => {
       if (m.do === "fountain") { room.fountainAt = now; broadcast(room, { t: "fountain" }); }
       else broadcast(room, { t: "meteor" });
     } else if (m.t === "lantern") {
-      // 소원 풍등: 한 줄 소원(15자, 욕설·음란어는 글 없이 풍등만). 운영자가 방에 있으면 금빛
+      // 소원 풍선: 한 줄 소원(15자, 욕설·음란어는 글 없이 풍선만). 운영자가 방에 있으면 금빛
       const now = Date.now();
       if (!u.admin && now - (u.lastLantern || 0) < LANTERN_GAP) return;
       u.lastLantern = now;
@@ -229,6 +236,23 @@ wss.on("connection", (ws, req) => {
       u.lastFb = now; fbCount.set(k, used + 1);
       saveFeedback({ at: new Date().toISOString(), nick: u.nick, room: room.no, text });
       send(ws, { t: "feedbackOk" });
+    } else if (m.t === "worry" && typeof m.text === "string") {
+      const now = Date.now();
+      if (!u.admin && now - (u.lastWorry || 0) < 180000) return send(ws, { t: "worryBad", why: "wait" });
+      const text = [...m.text.normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim()].slice(0, 120).join("");
+      if (!text) return send(ws, { t: "worryBad", why: "empty" });
+      if (badText(text)) return send(ws, { t: "worryBad", why: "bad" });
+      if (CRISIS.test(text)) return send(ws, { t: "worryBad", why: "crisis" });
+      u.lastWorry = now;
+      const list = liveWorries(room); if (list.length >= 6) list.shift();
+      const w = { id: nextWorry++, text, until: now + WORRY_LEN, at: now, cheers: Array(CHEERS).fill(0), by: new Set(), owner: u.id };
+      list.push(w);
+      for (const o of room.users.values()) send(o.ws, { t: "worry", w: pubWorry(w, now), mine: o.id === u.id || undefined });
+    } else if (m.t === "cheer" && Number.isInteger(m.w) && Number.isInteger(m.k) && m.k >= 0 && m.k < CHEERS) {
+      const now = Date.now(), w = liveWorries(room).find(x => x.id === m.w);
+      if (!w || w.owner === u.id || w.by.has(u.id) || now - (u.lastCheer || 0) < 1500) return;
+      u.lastCheer = now; w.by.add(u.id); w.cheers[m.k]++; w.until = Math.min(w.at + WORRY_MAX, w.until + 10000);
+      broadcast(room, { t: "cheer", w: w.id, k: m.k, left: w.until - now });
     } else if (m.t === "nick") {
       const now = Date.now();
       if (!u.admin && now - u.lastNick < NICK_GAP) return send(ws, { t: "nickbad", why: "wait" });
