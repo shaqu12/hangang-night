@@ -72,6 +72,7 @@
   #gate p { margin: 0 0 28px; color: var(--dim); font-size: 15px; line-height: 1.6; }
   #gate button { all: unset; cursor: pointer; padding: 14px 30px; border-radius: 999px; background: #f3d9a4; color: #1b1a22; font-weight: 700; font-size: 16px; }
   #gate small { display: block; margin-top: 18px; color: var(--dim); font-size: 12px; }
+  #gRow { display: flex; gap: 5px; justify-content: center; margin: 10px auto 0; } #gRow button { all: unset; cursor: pointer; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; color: var(--dim); } #gRow button.on { background: rgba(243,217,164,.2); border-color: rgba(243,217,164,.6); color: var(--ink); }
   #nickRow { display: flex; gap: 6px; justify-content: center; margin: 0 auto; width: min(260px, 100%); }
   #nickRow input, #nickBox input, #wishBox input, #sayBox input, #fbBox textarea { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--ink); font: inherit; font-size: 16px; text-align: center; outline: none; }
   #nickRow input:focus, #nickBox input:focus { border-color: rgba(243,217,164,.6); }
@@ -181,6 +182,7 @@
   <h1>밤 한강 돗자리</h1>
   <p id="gateMsg">조용한 강변에 잠깐 앉았다 가요.<br>여기 앉은 사람들은 모두 지금 접속한 사람이에요.</p>
   <div id="nickRow"><input id="nickIn" maxlength="5" autocomplete="off" enterkeyhint="go" aria-label="닉네임"><button id="nickDice" aria-label="다른 이름">🎲</button></div>
+  <div id="gRow" role="radiogroup" aria-label="캐릭터"><button data-g="m">👦 남자</button><button data-g="f">👧 여자</button><button data-g="">🙂 선택 안 함</button></div>
   <small class="nickHint">닉네임(5자까지)은 그대로 둬도 돼요. 폭죽을 쏘면 하늘에 이름이 떠요.</small>
   <button id="go">돗자리 펴기</button>
   <small id="soundNote">말은 못 하고 이모지만 보낼 수 있어요.</small>
@@ -664,7 +666,7 @@ function standSpot(id) { return { x: W * (.1 + ((id * .618034) % 1) * .8), y: pa
 const seatTaken = i => [...chars.values()].some(c => c.seat === i && c.state !== "leave");
 
 function addChar(u, walk) {
-  const c = { id: u.id, nick: u.nick || "", admin: !!u.admin, color: u.color, hair: HAIR[u.id % HAIR.length], style: (u.id * 7) % 5, prop: (u.id * 13) % 7, act: u.act || "sit", waveUntil: 0, seat: u.seat, emo: [], phase: Math.random() * 6, born: performance.now() };
+  const c = { id: u.id, nick: u.nick || "", admin: !!u.admin, color: u.color, hair: HAIR[u.id % HAIR.length], style: u.g === "f" ? [2, 4][u.id % 2] : u.g === "m" ? [0, 1, 3][u.id % 3] : (u.id * 7) % 5, bow: u.g === "f", prop: (u.id * 13) % 7, act: u.act || "sit", waveUntil: 0, seat: u.seat, emo: [], phase: Math.random() * 6, born: performance.now() };
   const spot = u.seat == null ? standSpot(u.id) : seats[u.seat];
   if (walk) {
     const fromLeft = spot.x < W / 2 ? Math.random() < .8 : Math.random() < .2;
@@ -862,6 +864,12 @@ function drawHead(c, hx, hy, s, t, sq) {
     cx.beginPath(); cx.ellipse(hx + Math.sin(t * .8 + c.phase) * .5 * s, hy + 13 * s, 3.4 * s, 6 * s, 0, 0, TAU); cx.fill();
     cx.strokeStyle = "rgba(255,255,255,.1)"; cx.lineWidth = .8 * s; cx.beginPath(); cx.arc(hx, hy, 7 * s, Math.PI * .3, Math.PI * .7); cx.stroke();
   }
+  if (c.bow) {                                                                                                                            // 여자 캐릭터: 머리 위 작은 리본
+    const bx = hx + 6 * s, by = hy - 8 * s * sq; cx.fillStyle = "#ff8fb1";
+    cx.beginPath(); cx.moveTo(bx, by); cx.lineTo(bx - 4 * s, by - 2.6 * s); cx.lineTo(bx - 4 * s, by + 2.6 * s); cx.fill();
+    cx.beginPath(); cx.moveTo(bx, by); cx.lineTo(bx + 4 * s, by - 2.6 * s); cx.lineTo(bx + 4 * s, by + 2.6 * s); cx.fill();
+    cx.fillStyle = "#ff6f9a"; cx.beginPath(); cx.arc(bx, by, 1.3 * s, 0, TAU); cx.fill();
+  }
   if (c.style === 3) {                                                                                                                    // 비니
     cx.fillStyle = c.color; cx.beginPath(); cx.ellipse(hx, hy - 1 * s, 12.6 * s, 12.6 * s * sq, 0, Math.PI, TAU); cx.fill();
     cx.fillStyle = "rgba(0,0,0,.18)"; cx.fillRect(hx - 12.6 * s, hy - 2 * s, 25.2 * s, 3.4 * s);
@@ -919,7 +927,8 @@ function seatAt(px, py) {
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
   { const w = !aiming && worryAt(e.clientX, e.clientY); if (w) return openWorry(w); }        // 고민 풍선: 공감 보내기
-  if (!aiming && onPet(e.clientX, e.clientY)) return openPet();                         // 산책로 강아지·고양이: 간식 후원
+  if (!aiming && onPet(e.clientX, e.clientY)) return openPet();
+  if (!aiming && onSky(e.clientX, e.clientY)) return sendStar(e.clientX, e.clientY);        // 하늘: 별똥별 신호                         // 산책로 강아지·고양이: 간식 후원
   if (!aiming && onBoard(e.clientX, e.clientY)) return openAsk();                       // 우체통 옆 게시판: 바라는 점
   if (!aiming && onMailbox(e.clientX, e.clientY)) return openBox("fb");                // 나에게 하고 싶은 말
   if (!aiming && onMyChar(e.clientX, e.clientY)) return openNickBox();                  // 내 캐릭터(이름표)를 누르면 닉네임 바꾸기
@@ -1177,6 +1186,11 @@ else if ([...myNick].length > 5) myNick = "";                                   
 if (!myNick) myNick = randNick();
 function saveNick(n) { myNick = n; try { localStorage.setItem("hn-nick", n); } catch {} }
 $("nickIn").value = myNick;
+// 캐릭터 성별: 남자(짧은 머리·비니) / 여자(긴 머리·묶은 머리 + 리본) / 선택 안 함(지금처럼 무작위). 이 폰에 저장
+let myG = ""; try { myG = localStorage.getItem("hn-gender") || ""; } catch {}
+const syncG = () => $("gRow").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.g === myG));
+$("gRow").querySelectorAll("button").forEach(b => b.onclick = () => { myG = b.dataset.g; try { localStorage.setItem("hn-gender", myG); } catch {} syncG(); });
+syncG();
 $("nickDice").onclick = () => { $("nickIn").value = randNick(); };
 $("nickIn").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
 function openNickBox() { $("nickEd").value = myNick; $("nickBox").classList.add("on"); }
@@ -1698,6 +1712,48 @@ $("worryClose").onclick = () => { worryOpen = null; $("worryBox").classList.remo
 // 지금 함께 앉아 있는 사람 수
 setInterval(() => { let n = 0; for (const c of chars.values()) if (c.state === "sit" || c.state === "walk" && c.then === "sit") n++; $("together").textContent = n >= 2 ? `지금 ${n}명이 함께 앉아 있어요` : ""; }, 2000);
 
+// ---------- 🍵 오늘의 한 줄 ----------
+// 들어오면 한국 날짜에 맞춘 다정한 문장 하나가 밤하늘에 떠올랐다 사라진다(매일 다른 문장, 저장 없음)
+const DAILY = ["오늘도 여기까지 온 당신, 정말 수고했어요.", "잘하지 않아도 괜찮아요. 오늘은 그냥 쉬어요.", "강물은 서두르지 않아도 바다에 닿아요.", "지금 이 순간, 숨 한 번 크게 쉬어 볼까요?", "당신이 있어서 오늘 한강이 조금 더 따뜻해요.",
+  "힘든 하루였다면, 여기서 잠깐 내려놓고 가요.", "오늘의 당신도 충분히 괜찮은 사람이에요.", "완벽한 하루보다 다정한 하루였길 바라요.", "느려도 괜찮아요. 멈추지만 않으면 돼요.", "누군가 당신을 생각하고 있을 거예요.",
+  "오늘 하루, 스스로에게 고맙다고 말해 줘요.", "별은 어두울 때 더 잘 보여요.", "울어도 괜찮고, 웃어도 괜찮아요.", "내일은 오늘보다 조금 가벼울 거예요.", "당신의 속도로 가면 돼요.",
+  "오늘 잘한 일 하나만 떠올려 봐요. 작은 거라도요.", "괜찮다는 말, 오늘은 제가 대신 해 줄게요.", "바람이 좋네요. 잠깐 눈 감아 봐요.", "다 지나가요. 좋은 것도, 힘든 것도.", "오늘도 버텨 줘서 고마워요.",
+  "당신은 생각보다 많은 사람에게 소중해요.", "쉬는 것도 용기예요.", "지금 여기 앉아 있는 것만으로 충분해요.", "오늘 밤은 걱정을 강물에 맡겨요.", "마음이 무거운 날엔 가운데 우체통에 털어놓고 가요.",
+  "따뜻한 거 하나 마시고 푹 자요.", "당신의 하루에 박수를 보내요.", "조금 늦어도, 결국 도착해요.", "혼자가 아니에요. 지금도 누군가 같은 강을 보고 있어요.", "오늘의 마음, 수고 많았어요.",
+  "작은 행복 하나쯤은 오늘도 있었을 거예요.", "내일의 걱정은 내일의 당신에게 맡겨요.", "지친 마음에도 별빛은 닿아요.", "당신이 웃는 날이 더 많아지길."];
+let dailyAt = -1;
+function drawDaily(t) {
+  if (dailyAt < 0) return; const age = performance.now() / 1000 - dailyAt; if (age > 9) { dailyAt = -1; return; }
+  const kst = new Date(Date.now() + 9 * 3600e3), day = Math.floor(kst.getTime() / 864e5), line = DAILY[day % DAILY.length];
+  const a = Math.min(1, age / 1.2, (9 - age) / 1.5), y = H * Y.S * .6 - age * 2 * U;   // 도시 위 하늘에
+  cx.font = `500 ${Math.max(14, 12.5 * U)}px -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`; cx.textAlign = "center";
+  cx.shadowColor = "rgba(0,0,0,.7)"; cx.shadowBlur = 8; cx.fillStyle = `rgba(243,217,164,${.8 * a})`; cx.fillText("🍵 오늘의 한 줄", W / 2, y - 22 * U);
+  cx.fillStyle = `rgba(255,248,232,${a})`;
+  const words = line.split(" "), lines = []; let cur = "";
+  for (const w of words) { const n = cur ? cur + " " + w : w; if (cx.measureText(n).width > W - 48 && cur) { lines.push(cur); cur = w; } else cur = n; } lines.push(cur);
+  lines.forEach((l, i) => cx.fillText(l, W / 2, y + i * 20 * U)); cx.shadowBlur = 0;
+}
+// ---------- 🌠 별똥별 신호 ----------
+// 하늘을 누르면 그 자리에서 별똥별이 떨어지고, 같은 방 모두의 화면에도 같은 자리에 떨어진다(10초에 한 번)
+const bigStars = []; let lastStarSent = -1e9, lastStarToast = -1e9;
+function onSky(px, py) { return py < H * Y.S * .92 && py > 70; }
+function sendStar(px, py) {
+  if (performance.now() - lastStarSent < 10000) return toast("별똥별은 10초에 하나씩 보낼 수 있어요", 1600);
+  if (ws && ws.readyState === 1) { ws.send(JSON.stringify({ t: "star", x: px / W, y: py / H })); lastStarSent = performance.now(); }
+}
+function drawBigStars(t, dt) {
+  for (let i = bigStars.length - 1; i >= 0; i--) {
+    const m = bigStars[i]; m.k += dt / 1.4; if (m.k >= 1) { bigStars.splice(i, 1); continue; }
+    const len = 120 * U, hx = m.x + m.d * m.k * len, hy = m.y + m.k * len * .55, a = Math.sin(m.k * Math.PI);
+    const tx = hx - m.d * 60 * U, ty = hy - 32 * U, g = cx.createLinearGradient(hx, hy, tx, ty);
+    g.addColorStop(0, `rgba(255,250,225,${a})`); g.addColorStop(.3, `rgba(255,220,150,${a * .55})`); g.addColorStop(1, "rgba(255,220,150,0)");
+    cx.strokeStyle = g; cx.lineWidth = 2.4 * U; cx.lineCap = "round"; cx.beginPath(); cx.moveTo(hx, hy); cx.lineTo(tx, ty); cx.stroke();
+    const sg = cx.createRadialGradient(hx, hy, 0, hx, hy, 10 * U); sg.addColorStop(0, `rgba(255,255,240,${a})`); sg.addColorStop(1, "rgba(255,255,240,0)");
+    cx.fillStyle = sg; cx.fillRect(hx - 10 * U, hy - 10 * U, 20 * U, 20 * U);
+    if (Math.random() < .5) m.sp.push({ x: hx, y: hy, a: 1 }); for (const p of m.sp) { p.a -= dt * 1.5; p.y += dt * 8 * U; if (p.a > 0) { cx.fillStyle = `rgba(255,240,200,${p.a})`; cx.fillRect(p.x, p.y, 1.4 * U, 1.4 * U); } }
+  }
+}
+
 // ---------- 루프 ----------
 let last = performance.now();
 function frame(now) {
@@ -1709,6 +1765,8 @@ function frame(now) {
   drawFireworks(t, dt);
   drawLanterns(t, dt);
   drawWorries(t, dt);
+  drawBigStars(t, dt);
+  drawDaily(t);
   const mine = chars.get(me), picking = canPick();
   const glowBase = !picking ? 0 : mine.state === "sit" ? .2 : .6;
   seats.forEach((s, i) => drawMat(s, glowBase && !seatTaken(i) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
@@ -1729,7 +1787,7 @@ function roomLabel(no) { return ROOM_NAMES[(no - 1) % ROOM_NAMES.length] + " " +
 
 function connect() {
   const from = (/[?&]from=([\w-]{1,20})/.exec(location.search) || [])[1];   // 어디서 왔는지(?from=kakao 등) 통계용
-  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws?nick=" + encodeURIComponent(myNick) + (from ? "&from=" + from : "") + (adminKey ? "&admin=" + encodeURIComponent(adminKey) : ""));
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws?nick=" + encodeURIComponent(myNick) + (myG ? "&g=" + myG : "") + (from ? "&from=" + from : "") + (adminKey ? "&admin=" + encodeURIComponent(adminKey) : ""));
   ws.onopen = () => { retry = 0; $("toast").classList.remove("on"); clearInterval(pingT); pingT = setInterval(() => ws.readyState === 1 && ws.send('{"t":"p"}'), 25000); };
   ws.onmessage = ev => {
     const m = JSON.parse(ev.data);
@@ -1765,6 +1823,7 @@ function connect() {
     else if (m.t === "adminHere") adminOn = m.on;                                         // 알림 없이 오로라만
     else if (m.t === "say") { const c = chars.get(m.id); if (c) { const lines = sayLines(m.text); c.say = { lines, at: performance.now(), dur: Math.max(8000, Math.ceil(lines.length / 5) * 5000 + 1000) }; } }
     else if (m.t === "notice") showNotice(m.text);
+    else if (m.t === "star") { bigStars.push({ x: m.x * W, y: m.y * H, d: m.d, k: 0, sp: [] }); if (m.id === me) toast("🌠 별똥별에 소원을 빌어 봐요", 2200); else if (performance.now() - lastStarToast > 8000) { lastStarToast = performance.now(); const c = chars.get(m.id); toast(`🌠 방금 별똥별 봤어요? ${c ? c.nick + "님이 보냈어요" : ""}`, 2600); } }
     else if (m.t === "worry") { addWorry(m.w, m.mine); if (m.mine) { $("fbEd").value = ""; closeBox("fb"); toast("🎈 고민 풍선이 떠올랐어요. 이름은 보이지 않아요", 3500); } }
     else if (m.t === "worryBad") toast(m.why === "wait" ? "함께 나누기는 3분에 한 번이에요" : m.why === "bad" ? "욕설이나 야한 말은 쓸 수 없어요. 고운 말로 적어 주세요" : m.why === "crisis" ? "이 마음은 혼자 견디지 않아도 돼요. 109(24시간)로 이야기해 주세요" : "한 줄이라도 적어 주세요", 3200);
     else if (m.t === "cheer") { const w = worries.find(x => x.id === m.w); if (w) { w.cheers[m.k]++; w.until = performance.now() + m.left; w.glow = 1.5; if (worryOpen === w) openWorry(w); if (w.mine) toast(`${CHEERS[m.k][0]} 누군가 "${CHEERS[m.k][1]}" 하고 곁에 있어요`, 3500); } }
@@ -1951,7 +2010,7 @@ fetch("amb-river.mp3", { method: "HEAD" }).then(r => {
 $("go").onclick = () => {
   const n = $("nickIn").value.replace(/\s+/g, " ").trim(); saveNick(n || myNick);
   $("gate").classList.add("off");
-  ensureCtx(); started = true; applySound();
+  ensureCtx(); started = true; applySound(); dailyAt = performance.now() / 1000 + 2.5;
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: "밤 한강 돗자리", artist: "밤 강변 소리" });
   connect();
 };

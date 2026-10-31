@@ -146,7 +146,7 @@ function pickRoom() {
   return r;
 }
 const adminHere = room => [...room.users.values()].some(o => o.admin);
-const pub = u => ({ id: u.id, seat: u.seat, color: u.color, act: u.act, nick: u.nick, admin: u.admin || undefined });
+const pub = u => ({ id: u.id, seat: u.seat, color: u.color, act: u.act, nick: u.nick, g: u.g, admin: u.admin || undefined });
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 function broadcast(room, msg, except) {
   const s = JSON.stringify(msg);
@@ -176,6 +176,7 @@ wss.on("connection", (ws, req) => {
   let asked = null; try { asked = decodeURIComponent((/[?&]nick=([^&]{1,120})/.exec(req.url) || [])[1] || ""); } catch {}
   let key = null; try { key = decodeURIComponent((/[?&]admin=([^&]{1,200})/.exec(req.url) || [])[1] || ""); } catch {}
   u.admin = isAdminKey(key);
+  u.g = (/[?&]g=([mf])(?:&|$)/.exec(req.url) || [])[1];   // 캐릭터 성별(남 m·여 f, 없으면 선택 안 함)
   u.nick = (u.admin ? cleanNick(asked, "free", 12) : cleanNick(asked)) || randNick();   // 운영자 닉네임은 12자까지, 거르지 않음
   room.users.set(u.id, u);
   ws.alive = true;
@@ -253,6 +254,10 @@ wss.on("connection", (ws, req) => {
       if (!w || w.owner === u.id || w.by.has(u.id) || now - (u.lastCheer || 0) < 1500) return;
       u.lastCheer = now; w.by.add(u.id); w.cheers[m.k]++; w.until = Math.min(w.at + WORRY_MAX, w.until + 10000);
       broadcast(room, { t: "cheer", w: w.id, k: m.k, left: w.until - now });
+    } else if (m.t === "star" && typeof m.x === "number" && typeof m.y === "number" && m.x >= 0 && m.x <= 1 && m.y >= 0 && m.y <= 1) {
+      // 별똥별 신호: 하늘을 누르면 같은 방 모두에게 그 자리에서 별똥별이 떨어진다. 10초에 한 번
+      const now = Date.now(); if (now - (u.lastStar || 0) < 10000) return; u.lastStar = now;
+      broadcast(room, { t: "star", id: u.id, x: Math.round(m.x * 1000) / 1000, y: Math.round(m.y * 1000) / 1000, d: Math.random() < .5 ? -1 : 1 });
     } else if (m.t === "nick") {
       const now = Date.now();
       if (!u.admin && now - u.lastNick < NICK_GAP) return send(ws, { t: "nickbad", why: "wait" });
