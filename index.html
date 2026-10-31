@@ -209,7 +209,7 @@ function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let
 // ---------- 화면 배치 (높이에 대한 비율) ----------
 // 하늘 | 건너편 강변(S) | 다리 상판(D)~교각 밑(P) | 물 | 이쪽 둑(B) | 산책로 | 잔디·돗자리
 const Y = { S: .36, D: .398, P: .432, B: .565, path0: .578, path1: .612 };
-let W, H, U, DPR, bg, city, cityGlow, dynWin = [], leds = [], shoot = null, nextShoot = 12, vignette, plane = null, nextPlane = 20, clouds = [], stars = [], avi = [], cars = [], lamps = [], seats = [];
+let W, H, U, DPR, bg, city, cityGlow, dynWin = [], leds = [], shoot = null, nextShoot = 12, vignette, plane = null, nextPlane = 20, clouds = [], stars = [], avi = [], cars = [], lamps = [], seats = [], groups = [];
 const moon = {};
 
 function layout() {
@@ -221,13 +221,22 @@ function layout() {
   const r = rng(7);
   // 가로 화면은 줄 사이가 좁아 캐릭터가 겹치므로 3줄×10으로 넓게 편다
   const land = W > H * 1.1, ROWS = land ? 3 : 5, COLS = SEATS / ROWS;
+  // 2인·4인 돗자리: 한 줄의 자리를 묶음으로 나눠 같은 돗자리 사람끼리 바짝 붙여 앉힌다 (자리 번호·수는 그대로)
+  groups = [];
+  // 자리 번호 순서대로 묶음 크기. 세로(6자리×5줄)·가로(10자리×3줄) 어느 쪽에서도 줄 끝에서 딱 끊겨 같은 돗자리 사람은 늘 같이 보인다
+  const MAT_SIZES = [2, 4, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2], PAT = [];
+  { let gi = 0; for (let row = 0; row < ROWS; row++) { const a = []; let n = 0; while (n < COLS) { a.push(MAT_SIZES[gi]); n += MAT_SIZES[gi++]; } PAT.push(a); } }
   for (let row = 0; row < ROWS; row++) {
     const y = H * (land ? .668 + row * .105 : .652 + row * .058);
     const s = land ? Math.min((.7 + row * .2) * U, H * .105 / 40) : (.62 + row * .13) * U * 1.15;
     const spread = land ? Math.min(W - 70 * s, W * (.6 + row * .12)) : Math.min(W * (.66 + row * .07), (300 + row * 40) * U * 1.5);
-    for (let c = 0; c < COLS; c++) {
-      const x = W / 2 + (c - (COLS - 1) / 2) / (COLS - 1) * spread * .92 + (r() - .5) * 10 * s;
-      seats.push({ x, y: y + (r() - .5) * 6 * s, s, mat: MATS[Math.floor(r() * MATS.length)], tilt: (r() - .5) * .12 });
+    const pat = PAT[row], step = 29 * s, inner = pat.reduce((a, n) => a + (n - 1) * step, 0), gap = (spread * .92 - inner) / (pat.length - 1);
+    let x0 = W / 2 - spread * .46;
+    for (const n of pat) {
+      const gx = x0 + (n - 1) * step / 2 + (r() - .5) * 8 * s, gy = y + (r() - .5) * 6 * s;
+      const g = { x: gx, y: gy, s, n, w: (n - 1) * step + 44 * s, mat: MATS[Math.floor(r() * MATS.length)], tilt: (r() - .5) * .08 / n, seats: [] };
+      for (let k = 0; k < n; k++) { g.seats.push(seats.length); seats.push({ x: gx + (k - (n - 1) / 2) * step, y: gy, s, g: groups.length }); }
+      groups.push(g); x0 += (n - 1) * step + gap;
     }
   }
   moon.x = W * .8; moon.y = H * .15; moon.r = 13 * U;
@@ -645,22 +654,39 @@ function drawBoat(t, dt) {
 
 // 돗자리. 비어 있으면 은은하게 빛나며 눌러 달라고 한다
 function drawMat(s, glow) {
-  const w = 46 * s.s, h = 16 * s.s;
+  const w = s.w, h = 16 * s.s, n = s.n;
   cx.fillStyle = "rgba(0,0,0,.22)"; cx.beginPath(); cx.ellipse(s.x, s.y + 4 * s.s, w * .55, h * .7, s.tilt, 0, TAU); cx.fill();
   cx.save(); cx.translate(s.x, s.y + 2 * s.s); cx.rotate(s.tilt);
   cx.beginPath(); cx.moveTo(-w * .42, -h / 2); cx.lineTo(w * .42, -h / 2); cx.lineTo(w / 2, h / 2); cx.lineTo(-w / 2, h / 2); cx.closePath();
   if (glow) { cx.shadowColor = `rgba(255,226,160,${glow})`; cx.shadowBlur = 14 * s.s; cx.strokeStyle = `rgba(255,232,180,${glow})`; cx.lineWidth = 1.6 * s.s; cx.stroke(); cx.shadowBlur = 0; }
   cx.fillStyle = s.mat[1]; cx.globalAlpha = .55; cx.fill(); cx.clip();
   cx.fillStyle = s.mat[0];
-  for (let i = -6; i < 6; i += 2) cx.fillRect(i * w / 12, -h, w / 12, h * 2);
+  for (let i = -6 * n; i < 6 * n; i += 2) cx.fillRect(i * w / (12 * n), -h, w / (12 * n), h * 2);
   cx.globalAlpha = .3; cx.fillRect(-w, -h / 2, w * 2, h / 4); cx.fillRect(-w, 0, w * 2, h / 4);
   // 가장자리 박음질, 접힌 자국, 앞쪽 그늘
   cx.globalAlpha = 1; cx.strokeStyle = "rgba(255,255,255,.28)"; cx.lineWidth = Math.max(.6, .7 * s.s);
   cx.beginPath(); cx.moveTo(-w * .4, -h / 2 + 1.2 * s.s); cx.lineTo(w * .4, -h / 2 + 1.2 * s.s); cx.lineTo(w * .48, h / 2 - 1.2 * s.s); cx.lineTo(-w * .48, h / 2 - 1.2 * s.s); cx.closePath(); cx.stroke();
-  cx.strokeStyle = "rgba(0,0,0,.12)"; cx.beginPath(); cx.moveTo(0, -h / 2); cx.lineTo(0, h / 2); cx.stroke();
+  cx.strokeStyle = "rgba(0,0,0,.12)"; cx.beginPath(); for (let k = 1; k < n; k++) { const fx = -w / 2 + w * k / n; cx.moveTo(fx * .9, -h / 2); cx.lineTo(fx, h / 2); } cx.stroke();
   const sh = cx.createLinearGradient(0, -h / 2, 0, h / 2); sh.addColorStop(0, "rgba(0,0,0,.25)"); sh.addColorStop(1, "rgba(0,0,0,0)");
   cx.fillStyle = sh; cx.fillRect(-w, -h / 2, w * 2, h);
   cx.restore(); cx.globalAlpha = 1;
+}
+// 돗자리 앞 작은 표시: 빈자리는 점(○), 앉은 자리는 채운 점(●), 다 차면 '가득'
+function drawMatTag(g) {
+  const s = g.s, y = g.y + 13 * s, taken = g.seats.filter(seatTaken).length;
+  if (taken === g.n) {
+    const fs = Math.max(8, 7.5 * s); cx.font = `600 ${fs}px sans-serif`; cx.textAlign = "center"; cx.textBaseline = "middle";
+    const tw = cx.measureText("가득").width + fs;
+    cx.fillStyle = "rgba(20,24,40,.55)"; cx.beginPath(); cx.roundRect ? cx.roundRect(g.x - tw / 2, y - fs * .75, tw, fs * 1.5, fs * .75) : cx.rect(g.x - tw / 2, y - fs * .75, tw, fs * 1.5); cx.fill();
+    cx.fillStyle = "rgba(255,226,170,.9)"; cx.fillText("가득", g.x, y + .5); cx.textBaseline = "alphabetic";
+    return;
+  }
+  const r = Math.max(1.3, 1.6 * s), gap = r * 3.4;
+  for (let k = 0; k < g.n; k++) {
+    const dx = g.x + (k - (g.n - 1) / 2) * gap, on = seatTaken(g.seats[k]);
+    cx.beginPath(); cx.arc(dx, y, r, 0, TAU);
+    if (on) { cx.fillStyle = "rgba(255,226,170,.85)"; cx.fill(); } else { cx.strokeStyle = "rgba(255,226,170,.55)"; cx.lineWidth = Math.max(.7, .6 * s); cx.stroke(); }
+  }
 }
 
 // ---------- 캐릭터 ----------
@@ -862,7 +888,50 @@ function arm(c, a, b, s) {
   cx.strokeStyle = "rgba(0,0,10,.15)"; cx.lineWidth = 1.2 * s; cx.beginPath(); cx.moveTo(a.x + .8 * s, a.y + .8 * s); cx.lineTo(b.x + .8 * s, b.y + .8 * s); cx.stroke();
   cx.fillStyle = "#e9c4a3"; cx.beginPath(); cx.arc(b.x, b.y, 1.9 * s, 0, TAU); cx.fill();
 }
+// 앞모습: 인사·마음·말풍선·쓰다듬기 때 잠깐 뒤돌아 얼굴을 보여 준다 (평소엔 강을 보는 뒷모습)
+const JOY = /[😊😄😆🥰😍💗💕💞💛❤🎉👏✨🤗😂]/u;
+function face(id, ms, e) { const c = chars.get(id); if (!c) return; const now = performance.now(); if (!(c.faceUntil > now)) c.faceAt = now; c.faceUntil = Math.max(c.faceUntil || 0, now + ms); c.mood = e && /[😢😭🥺]/u.test(e) ? "sad" : e && JOY.test(e) ? "joy" : "smile"; }
+function drawFace(c, hx, hy, s, t, sq) {
+  if (c.style === 4) { cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy + 6 * s, 12.5 * s, 13 * s, 0, 0, TAU); cx.fill(); }   // 긴 머리(뒤로 내려온 부분)
+  cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy, 12 * s, 12 * s * sq, 0, 0, TAU); cx.fill();
+  if (c.style === 2) { cx.beginPath(); cx.ellipse(hx + 10.5 * s, hy + 4 * s, 3 * s, 5.5 * s, -.3, 0, TAU); cx.fill(); }   // 묶은 머리가 옆으로 살짝
+  cx.fillStyle = "#efcdae"; cx.beginPath(); cx.ellipse(hx, hy + 2.2 * s, 9.6 * s, 9 * s * sq, 0, 0, TAU); cx.fill();       // 얼굴
+  cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy - 5.5 * s * sq, 10.6 * s, 5.2 * s, 0, Math.PI, TAU); cx.fill(); // 앞머리
+  cx.beginPath(); cx.moveTo(hx - 10.6 * s, hy - 5.5 * s); cx.quadraticCurveTo(hx - 3 * s, hy - 1 * s, hx + 1 * s, hy - 5.5 * s); cx.quadraticCurveTo(hx + 5 * s, hy - 1.8 * s, hx + 10.6 * s, hy - 5.5 * s); cx.fill();
+  const ey = hy + 2 * s, blink = (t + c.phase) % 4 < .12;
+  cx.strokeStyle = cx.fillStyle = "#2a211d"; cx.lineWidth = Math.max(.8, 1.1 * s); cx.lineCap = "round";
+  for (const sx of [-1, 1]) {
+    const ex = hx + sx * 3.8 * s;
+    if (c.mood === "joy") { cx.beginPath(); cx.arc(ex, ey + .8 * s, 1.6 * s, Math.PI * 1.15, Math.PI * 1.85); cx.stroke(); }           // ^ ^
+    else if (blink) { cx.beginPath(); cx.moveTo(ex - 1.3 * s, ey); cx.lineTo(ex + 1.3 * s, ey); cx.stroke(); }
+    else { cx.beginPath(); cx.ellipse(ex, ey, 1.2 * s, 1.5 * s, 0, 0, TAU); cx.fill(); cx.fillStyle = "rgba(255,255,255,.8)"; cx.beginPath(); cx.arc(ex + .4 * s, ey - .5 * s, .45 * s, 0, TAU); cx.fill(); cx.fillStyle = "#2a211d"; }
+  }
+  cx.fillStyle = "rgba(255,130,140,.38)"; cx.beginPath(); cx.ellipse(hx - 6 * s, ey + 2.6 * s, 2 * s, 1.2 * s, 0, 0, TAU); cx.ellipse(hx + 6 * s, ey + 2.6 * s, 2 * s, 1.2 * s, 0, 0, TAU); cx.fill();
+  cx.strokeStyle = "#8a4b3c"; cx.beginPath();
+  if (c.mood === "sad") cx.arc(hx, ey + 6.4 * s, 1.8 * s, Math.PI * 1.2, Math.PI * 1.8);
+  else cx.arc(hx, ey + 3.2 * s, c.mood === "joy" ? 2.4 * s : 1.8 * s, Math.PI * .2, Math.PI * .8);
+  cx.stroke();
+  if (c.bow) { const bx = hx + 7 * s, by = hy - 8 * s * sq; cx.fillStyle = "#ff8fb1";
+    cx.beginPath(); cx.moveTo(bx, by); cx.lineTo(bx - 4 * s, by - 2.6 * s); cx.lineTo(bx - 4 * s, by + 2.6 * s); cx.fill();
+    cx.beginPath(); cx.moveTo(bx, by); cx.lineTo(bx + 4 * s, by - 2.6 * s); cx.lineTo(bx + 4 * s, by + 2.6 * s); cx.fill();
+    cx.fillStyle = "#ff6f9a"; cx.beginPath(); cx.arc(bx, by, 1.3 * s, 0, TAU); cx.fill(); }
+  if (c.style === 3) {
+    cx.fillStyle = c.color; cx.beginPath(); cx.ellipse(hx, hy - 3 * s, 12.6 * s, 11 * s * sq, 0, Math.PI, TAU); cx.fill();
+    cx.fillStyle = "rgba(0,0,0,.18)"; cx.fillRect(hx - 12.6 * s, hy - 4 * s, 25.2 * s, 3 * s);
+    cx.fillStyle = "#f2efe8"; cx.beginPath(); cx.arc(hx, hy - 14 * s * sq, 3 * s, 0, TAU); cx.fill();
+  }
+}
 function drawHead(c, hx, hy, s, t, sq) {
+  const now = performance.now();
+  if (c.faceUntil > now) {                                                                  // 고개를 돌리는 순간은 옆으로 살짝 찌그러뜨려 '휙' 느낌
+    const k = Math.min(1, (now - c.faceAt) / 160, (c.faceUntil - now) / 160);
+    if (k < 1) { cx.save(); cx.translate(hx, hy); cx.scale(.55 + .45 * k, 1); cx.translate(-hx, -hy); (k < .5 ? drawBack : drawFace)(c, hx, hy, s, t, sq); cx.restore(); }
+    else drawFace(c, hx, hy, s, t, sq);
+    return;
+  }
+  drawBack(c, hx, hy, s, t, sq);
+}
+function drawBack(c, hx, hy, s, t, sq) {
   if (c.style === 4) { cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy + 8 * s, 11 * s, 13 * s, 0, 0, TAU); cx.fill(); }   // 긴 머리
   cx.fillStyle = "#e9c4a3"; cx.beginPath(); cx.arc(hx - 11.5 * s, hy + 2 * s, 2.4 * s, 0, TAU); cx.arc(hx + 11.5 * s, hy + 2 * s, 2.4 * s, 0, TAU); cx.fill();
   cx.fillStyle = c.hair; cx.beginPath(); cx.ellipse(hx, hy, 12 * s, 12 * s * sq, 0, 0, TAU); cx.fill();
@@ -925,9 +994,15 @@ function scaleAt(y) {
 function seatAt(px, py) {
   let best = -1, bd = 1;
   seats.forEach((s, i) => {
-    const dx = (px - s.x) / (28 * s.s), dy = (py - (s.y - 8 * s.s)) / (20 * s.s), d = dx * dx + dy * dy;
+    const dx = (px - s.x) / (24 * s.s), dy = (py - (s.y - 8 * s.s)) / (20 * s.s), d = dx * dx + dy * dy;
     if (d < bd) { bd = d; best = i; }
   });
+  return best;
+}
+// 돗자리를 누르면 그 돗자리의 빈자리 중 누른 곳과 가장 가까운 자리 (내가 이미 이 돗자리면 옆자리로 옮기기)
+function freeSeatNear(i, px) {
+  const g = groups[seats[i].g]; let best = -1, bd = 1e9;
+  for (const k of g.seats) { if (seatTaken(k)) continue; const d = Math.abs(seats[k].x - px); if (d < bd) { bd = d; best = k; } }
   return best;
 }
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
@@ -942,12 +1017,14 @@ cv.addEventListener("pointerdown", e => {
   if (other) { closePanels(); $("emo").classList.add("open"); return toast(`😊 이모지를 끌어서 ${other.nick}님에게 놓아 보세요`, 2600); }   // 다른 사람을 누르면 마음 보내기 안내
   if (aiming || !canPick()) return;
   const i = seatAt(e.clientX, e.clientY);
-  if (i < 0 || seatTaken(i)) return;
-  ws.send(JSON.stringify({ t: "sit", seat: i }));
+  if (i < 0) return;
+  const k = freeSeatNear(i, e.clientX);
+  if (k < 0) { const mineHere = groups[seats[i].g].seats.some(j => { const c = chars.get(me); return c && c.seat === j; }); if (!mineHere) toast("이 돗자리는 가득 찼어요. 빈 돗자리를 골라 주세요", 2200); return; }
+  ws.send(JSON.stringify({ t: "sit", seat: k }));
 });
 cv.addEventListener("pointermove", e => {
   const i = canPick() ? seatAt(e.clientX, e.clientY) : -1;
-  cv.style.cursor = i >= 0 && !seatTaken(i) ? "pointer" : "default";
+  cv.style.cursor = i >= 0 && freeSeatNear(i, e.clientX) >= 0 ? "pointer" : "default";
 });
 
 // ---------- 폭죽 ----------
@@ -1657,6 +1734,7 @@ $("petGo").onclick = () => {
 // 쓰다듬기: 창은 그대로 두고 누를 때마다 하트가 나고 반응이 조금씩 달라진다
 const PAT_SAY = ["좋아해요 💗", "꼬리를 막 흔들어요 💕", "눈을 스르르 감아요 😌", "배를 보여 줘요 🥰", "골골골… 행복해요 💞"];
 $("petPat").onclick = () => {
+  face(me, 2600, "🥰");
   const P = petNow(); petBurst(["💗", "💕", "💞", "✨"][petPats % 4]);
   const f = $("petFace"); f.style.animation = "none"; void f.offsetWidth; f.style.animation = "";
   $("petMsg").textContent = P ? `${P.pet.say} ${P.pet.name}가 ${PAT_SAY[Math.min(petPats, PAT_SAY.length - 1)]}` : "💗"; petPats++;
@@ -1790,7 +1868,8 @@ function frame(now) {
   drawDaily(t);
   const mine = chars.get(me), picking = canPick();
   const glowBase = !picking ? 0 : mine.state === "sit" ? .2 : .6;
-  seats.forEach((s, i) => drawMat(s, glowBase && !seatTaken(i) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
+  groups.forEach((g, i) => drawMat(g, glowBase && g.seats.some(k => !seatTaken(k)) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
+  groups.forEach(drawMatTag);
   drawPaperBoats(t, dt); drawMailbox(t); drawBoard(t); drawPet(t, dt);
   for (const c of chars.values()) stepChar(c, dt);
   [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
@@ -1832,17 +1911,22 @@ function connect() {
     } else if (m.t === "join") addChar(m.user, true);
     else if (m.t === "seat") {
       goSeat(m.id, m.seat);
+      { const my = chars.get(me), o = chars.get(m.id);
+        if (m.id !== me && my && my.seat != null && o && seats[my.seat].g === seats[m.seat].g) { toast(`🧺 ${o.nick}님이 옆에 앉았어요`, 2600); face(me, 2600, "😊"); } }
       if (m.id === me) {
         if (lastSeat == null || !restStart) restStart = Date.now();
         if (restoring && lastAct !== "sit") { const c = chars.get(me); if (c) { c.act = lastAct; syncActs(); ws.send(JSON.stringify({ t: "act", a: lastAct })); } }
-        lastSeat = m.seat; restoring = false; restTick();
+        const wasRestoring = restoring; lastSeat = m.seat; restoring = false; restTick();
+        const mates = groups[seats[m.seat].g].seats.map(k => [...chars.values()].find(c => c.seat === k && c.id !== me && c.state !== "leave")).filter(Boolean);
+        if (mates.length && !wasRestoring) { face(me, 2600, "😊"); mates.forEach(c => face(c.id, 2600, "😊")); }
+        if (mates.length && !wasRestoring) toast(`🧺 ${mates.map(c => c.nick).join(", ")}님과 같은 돗자리에 앉았어요. 👋 인사해 볼까요?`, 3200);
       }
     }
     else if (m.t === "taken") { if (!restoring) toast("앗, 방금 다른 분이 먼저 앉았어요", 2500); restoring = false; }
     else if (m.t === "lantern") launchLantern(m);
-    else if (m.t === "heart") { hearts.push({ from: m.from, to: m.to, e: m.e, age: 0 }); if (m.to === me) { const f = chars.get(m.from); toast(`${m.e || "💗"} ${f ? f.nick : "누군가"}님이 마음을 보냈어요`, 2500); } }
+    else if (m.t === "heart") { hearts.push({ from: m.from, to: m.to, e: m.e, age: 0 }); face(m.from, 2600, m.e); setTimeout(() => face(m.to, 2800, "😊"), 900); if (m.to === me) { const f = chars.get(m.from); toast(`${m.e || "💗"} ${f ? f.nick : "누군가"}님이 마음을 보냈어요`, 2500); } }
     else if (m.t === "adminHere") adminOn = m.on;                                         // 알림 없이 오로라만
-    else if (m.t === "say") { const c = chars.get(m.id); if (c) { const lines = sayLines(m.text); c.say = { lines, at: performance.now(), dur: Math.max(8000, Math.ceil(lines.length / 5) * 5000 + 1000) }; } }
+    else if (m.t === "say") { const c = chars.get(m.id); if (c) { const lines = sayLines(m.text); c.say = { lines, at: performance.now(), dur: Math.max(8000, Math.ceil(lines.length / 5) * 5000 + 1000) }; face(m.id, 6000); } }
     else if (m.t === "notice") showNotice(m.text);
     else if (m.t === "star") { bigStars.push({ x: m.x * W, y: m.y * H, d: m.d, k: 0, sp: [] }); if (m.id === me) toast("🌠 별똥별에 소원을 빌어 봐요", 2200); else if (performance.now() - lastStarToast > 8000) { lastStarToast = performance.now(); const c = chars.get(m.id); toast(`🌠 방금 별똥별 봤어요? ${c ? c.nick + "님이 보냈어요" : ""}`, 2600); } }
     else if (m.t === "worry") { addWorry(m.w, m.mine); if (m.mine) { $("fbEd").value = ""; closeBox("fb"); toast("🎈 고민 풍선이 떠올랐어요. 이름은 보이지 않아요", 3500); } }
@@ -1853,7 +1937,7 @@ function connect() {
     else if (m.t === "letter") { cacheLetters([m.f]); letterCount = m.n; syncInboxBtn(); if ($("inbox").classList.contains("on")) renderInbox(); else toast("📝 바라는 점이 새로 왔어요", 2500); }
     else if (m.t === "restart") toast("잠깐 새 단장 중이에요. 자리는 그대로 돌아와요", 0);
     else if (m.t === "leave") removeChar(m.id);
-    else if (m.t === "emo") { const c = chars.get(m.id); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
+    else if (m.t === "emo") { const c = chars.get(m.id); face(m.id, 2600, m.e); if (c && c.emo.length < 4) { c.emo.push({ e: m.e, at: performance.now() }); if (m.e === "👋") c.waveUntil = performance.now() + 2400; } }
     else if (m.t === "fw") launchFw(m);
     else if (m.t === "nick") { const c = chars.get(m.id); if (c) c.nick = m.n; if (m.id === me) { saveNick(m.n); toast(`이제 '${m.n}'(이)에요`, 2200); } }
     else if (m.t === "nickbad") toast(m.why === "bad" ? "그 이름은 쓸 수 없어요. 다른 이름으로 해 주세요" : m.why === "wait" ? "잠깐 뒤에 다시 바꿔 주세요" : "이름을 적어 주세요", 2500);
@@ -1874,6 +1958,37 @@ function connect() {
 
 // 돗자리 위 행동 (server.js ACTS와 같아야 함). 같은 걸 다시 누르면 그냥 앉기로
 const ACTS = [["sit", "🧘", "앉기"], ["lie", "🛌", "눕기"], ["star", "🌟", "별 보기"], ["ramen", "🍜", "라면"], ["chicken", "🍗", "치킨"], ["photo", "📸", "사진"], ["stretch", "🙆", "기지개"], ["doze", "😪", "꾸벅"]];
+// 📷 한강 사진: 지금 화면을 한 장으로 저장·공유 (서버에 아무것도 올리지 않는다). 구석에 작은 사이트 이름
+let snapping = false;
+function snapPhoto() {
+  if (snapping) return; snapping = true;
+  const o = document.createElement("canvas"); o.width = cv.width; o.height = cv.height;
+  const g = o.getContext("2d"); g.drawImage(cv, 0, 0);
+  const k = DPR, fs = Math.round(Math.max(10, Math.min(W, H) * .028)) * k, pad = 10 * k;
+  const d = new Date(Date.now() + 9 * 3600e3), date = `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.${String(d.getUTCDate()).padStart(2, "0")}`;
+  g.textAlign = "right"; g.textBaseline = "bottom"; g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 4 * k;
+  g.font = `600 ${fs}px sans-serif`; g.fillStyle = "rgba(255,240,210,.85)"; g.fillText("🌙 밤 한강 돗자리", o.width - pad, o.height - pad - fs * 1.15);
+  g.font = `${fs * .78}px sans-serif`; g.fillStyle = "rgba(255,240,210,.6)"; g.fillText(`hangang-night.onrender.com · ${date}`, o.width - pad, o.height - pad);
+  const fl = document.createElement("div"); fl.style.cssText = "position:fixed;inset:0;background:#fff;opacity:.85;pointer-events:none;z-index:50;transition:opacity .5s";
+  document.body.appendChild(fl); requestAnimationFrame(() => requestAnimationFrame(() => { fl.style.opacity = 0; })); setTimeout(() => fl.remove(), 600);
+  o.toBlob(async blob => {
+    snapping = false; if (!blob) return toast("사진을 만들지 못했어요", 2200);
+    const name = `hangang-night-${date.replace(/\./g, "")}.png`, file = new File([blob], name, { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: "밤 한강 돗자리" }); return; } catch (e) { if (e && e.name === "AbortError") return; }
+    }
+    showPhoto(blob, name);
+  }, "image/png");
+}
+function showPhoto(blob, name) {
+  const url = URL.createObjectURL(blob), box = document.createElement("div");
+  box.style.cssText = "position:fixed;inset:0;z-index:60;background:rgba(5,8,20,.82);display:grid;place-items:center;padding:16px";
+  box.innerHTML = `<div style="max-width:min(92vw,560px);text-align:center;color:#f3e9d7;font:14px sans-serif"><img alt="한강 사진" style="max-width:100%;max-height:68vh;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5)"><p style="margin:12px 0 10px;opacity:.8">폰에서는 사진을 길게 눌러 저장할 수 있어요</p><a download style="display:inline-block;padding:10px 18px;border-radius:12px;background:rgba(243,217,164,.22);color:#f3e9d7;text-decoration:none;margin-right:6px">💾 저장</a><button style="all:unset;cursor:pointer;padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.1)">닫기</button></div>`;
+  box.querySelector("img").src = url; const a = box.querySelector("a"); a.href = url; a.download = name;
+  const close = () => { box.remove(); URL.revokeObjectURL(url); };
+  box.querySelector("button").onclick = close; box.onclick = e => { if (e.target === box) close(); };
+  document.body.appendChild(box);
+}
 function buildActs() {
   const bar = $("acts");
   const eb = document.createElement("button"); eb.innerHTML = "😊<span>마음</span>"; eb.setAttribute("aria-label", "마음 보내기"); eb.onclick = () => { const o = !$("emo").classList.contains("open"); closePanels(); $("emo").classList.toggle("open", o); if (o && aiming) setAiming(false); };
@@ -1888,6 +2003,9 @@ function buildActs() {
   const lb = document.createElement("button"); lb.innerHTML = "🎈<span>소원 풍선</span>"; lb.setAttribute("aria-label", "소원 풍선");
   lb.onclick = () => { if (aiming) setAiming(false); closePanels(); openWish(); };
   bar.appendChild(lb);
+  const pb = document.createElement("button"); pb.innerHTML = "📷<span>사진</span>"; pb.setAttribute("aria-label", "한강 사진 찍기");
+  pb.onclick = () => { if (aiming) setAiming(false); closePanels(); snapPhoto(); };
+  bar.appendChild(pb);
   const sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
   const ab = document.createElement("button"); ab.id = "actBtn"; ab.innerHTML = "🧘<span>행동</span>"; ab.setAttribute("aria-label", "행동");   // 내 행동(눕기·라면 등)은 따로 모아 둔다
   ab.onclick = () => { const o = !$("actp").classList.contains("open"); closePanels(); if (aiming) setAiming(false); $("actp").classList.toggle("open", o); };
@@ -1948,7 +2066,7 @@ function buildEmoji(list) {
       if (ev.type === "pointercancel") return;
       if (!d.moved) {                                                                                     // 누르기: 내 머리 위에
         if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "emo", e }));
-        const c = chars.get(me); if (c) { c.emo.push({ e, at: performance.now() }); if (e === "👋") c.waveUntil = performance.now() + 2400; }
+        const c = chars.get(me); face(me, 2600, e); if (c) { c.emo.push({ e, at: performance.now() }); if (e === "👋") c.waveUntil = performance.now() + 2400; }
       } else if (d.over != null) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "heart", to: d.over, e })); }   // 끌어 놓기: 그 사람에게
       else return toast("친구 캐릭터 위에 놓아 주세요", 1800);
       closePanels(); emoCool();
