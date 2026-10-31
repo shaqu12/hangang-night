@@ -121,10 +121,11 @@
   #petBox { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); width: min(320px, calc(100vw - 32px)); padding: 18px 16px 14px; border-radius: 22px; background: #fff4e6; color: #4a3424; box-shadow: 0 12px 40px rgba(0,0,0,.45); display: none; flex-direction: column; gap: 10px; text-align: center; z-index: 6; }
   #petBox.on { display: flex; } #petBox .face { font-size: 46px; line-height: 1; animation: petHop 1.2s ease-in-out infinite; } @keyframes petHop { 50% { transform: translateY(-6px) rotate(-4deg); } }
   #petBox b { font-size: 17px; } #petBox small { color: #8a6a52; font-size: 12.5px; line-height: 1.6; }
-  #petBox .snacks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } #petBox .snacks button { all: unset; cursor: pointer; padding: 10px 2px; border-radius: 14px; background: #ffe7c9; display: grid; gap: 2px; font-size: 22px; }
-  #petBox .snacks button span { font-size: 12px; color: #7a5638; font-weight: 700; } #petBox .snacks button.sel { background: #ffc98a; box-shadow: inset 0 0 0 2px #e8913a; }
-  #petBox .go { all: unset; cursor: pointer; padding: 12px; border-radius: 999px; background: #e8913a; color: #fff; font-weight: 700; font-size: 15px; } #petBox .go.off { background: #d9c4ac; }
-  #petBox .row { display: flex; gap: 6px; } #petBox .row button { all: unset; cursor: pointer; flex: 1; padding: 10px; border-radius: 999px; background: #f4e3cf; color: #7a5638; font-size: 14px; }
+  #petBox .pat { all: unset; cursor: pointer; padding: 15px; border-radius: 999px; background: #e8913a; color: #fff; font-weight: 700; font-size: 18px; box-shadow: 0 4px 0 #c46f22; } #petBox .pat:active { transform: translateY(2px); box-shadow: 0 2px 0 #c46f22; }
+  #petBox .give { border-top: 1px dashed #e6cdb0; padding-top: 10px; margin-top: 2px; display: flex; flex-direction: column; gap: 6px; } #petBox .give small { font-size: 11.5px; color: #a8896e; }
+  #petBox .snacks { display: flex; gap: 5px; justify-content: center; } #petBox .snacks button { all: unset; cursor: pointer; padding: 5px 9px; border-radius: 999px; background: #f6e6d2; font-size: 12px; color: #8a6a52; } #petBox .snacks button.sel { background: #f1d3ae; color: #6a4a30; font-weight: 700; }
+  #petBox .go { all: unset; cursor: pointer; align-self: center; padding: 6px 16px; border-radius: 999px; background: #f6e6d2; color: #8a6a52; font-size: 12.5px; font-weight: 600; }
+  #petBox #petClose { all: unset; cursor: pointer; align-self: center; padding: 4px 12px; font-size: 13px; color: #a8896e; }
   #petQR { display: none; justify-content: center; } #petQR.on { display: flex; } #petQR canvas, #petQR img { width: 150px; height: 150px; background: #fff; padding: 8px; border-radius: 12px; }
   #notice { position: fixed; left: 50%; transform: translateX(-50%); top: calc(max(12px, env(safe-area-inset-top)) + 56px); width: min(440px, calc(100vw - 32px)); padding: 12px 40px 12px 14px; border-radius: 16px; background: rgba(40,32,12,.92); border: 1px solid rgba(245,200,76,.7); box-shadow: 0 8px 30px rgba(0,0,0,.45); color: #fff6dc; display: none; z-index: 7; font-size: 14px; line-height: 1.6; }
   #notice.on { display: block; } #notice b { color: #f5c84c; font-size: 13px; display: block; margin-bottom: 2px; }
@@ -166,7 +167,7 @@
 <div id="replyBox" role="dialog" aria-label="답장"><b>💌 한강 우체통의 답장</b><p id="replyText"></p><div class="sign">— 한강에서</div><div class="act" id="replyAct"></div><div id="breath"><i></i><span>천천히 들이쉬고…</span></div><div class="help" id="replyHelp">혼자 견디지 않아도 돼요. 지금 바로 이야기를 들어 줄 사람이 있어요.<br>📞 <a href="tel:109">자살예방상담 109</a> (24시간, 무료)<br>💬 청소년이라면 <a href="tel:1388">1388</a></div><div class="row2"><button id="replyAgain">🔄 다른 말 듣기</button><button id="breathBtn">🌬️ 같이 숨 쉬기</button></div><small>이 답장도 어디에도 남지 않아요</small><button id="replyOk">고마워요</button></div>
 <div id="askBox" role="dialog" aria-label="바라는 점"><b>📝 한강에 바라는 점</b><small>이용하면서 필요한 것, 불편한 점, 하고 싶은 말을 들려주세요.<br>운영자에게 꼭 전해 줄게요.</small><div class="chips"><button>이런 기능이 있으면 좋겠어요: </button><button>이건 좀 불편했어요: </button><button>좋았던 점: </button></div><textarea id="askEd" maxlength="300" rows="4" aria-label="바라는 점" placeholder="예: 친구랑 같은 방에 들어가고 싶어요"></textarea><div class="btns"><button id="askCancel">다음에</button><button id="askSend" class="on">보내기</button></div></div>
 <div id="inbox"><div class="head"><b>📝 바라는 점</b><button id="inboxClose">닫기</button></div><small id="inboxNote"></small><div id="inboxList"></div></div>
-<div id="petBox" role="dialog" aria-label="간식 주기"><div class="face" id="petFace">🐶</div><b id="petTitle">몽이에게 간식 주기</b><small id="petMsg">한강 돗자리는 무료로 운영돼요.<br>간식 한 번이 서버를 하루 더 켜 줘요 🐾</small><div class="snacks"><button data-amt="1000">🦴<span>1,000원</span></button><button data-amt="3000" class="sel">🍖<span>3,000원</span></button><button data-amt="5000">🎂<span>5,000원</span></button></div><div id="petQR"></div><button class="go" id="petGo">간식 주기</button><div class="row"><button id="petPat">쓰다듬기만 할게요</button><button id="petClose">다음에</button></div></div>
+<div id="petBox" role="dialog" aria-label="강아지 고양이"><div class="face" id="petFace">🐶</div><b id="petTitle">몽이를 만났어요!</b><small id="petMsg">살살 쓰다듬어 주세요 🐾</small><button class="pat" id="petPat">🤚 쓰다듬기</button><div class="give"><small>서버비에 보태고 싶다면</small><div class="snacks"><button data-amt="1000">🦴 1,000</button><button data-amt="3000" class="sel">🍖 3,000</button><button data-amt="5000">🎂 5,000</button></div><div id="petQR"></div><button class="go" id="petGo">간식 주기</button></div><button id="petClose">닫기</button></div>
 <div id="notice" role="status"><b>📢 운영자 공지</b><div id="noticeText"></div><button id="noticeClose" aria-label="닫기">✕</button></div>
 <div id="nickBox" class="pill"><b>닉네임 바꾸기</b><div><input id="nickEd" maxlength="5" autocomplete="off" enterkeyhint="done" aria-label="새 닉네임"><button id="nickEdDice" aria-label="다른 이름">🎲</button></div><div class="btns"><button id="nickCancel">닫기</button><button id="nickSave" class="on">바꾸기</button></div></div>
 <div id="gate"><div class="box">
@@ -1577,19 +1578,18 @@ function drawPet(t, dt) {
   P.s = s; drawPet.last = P;
 }
 function onPet(px, py) { const P = petNow(); if (!P) return false; const s = scaleAt(P.y) * 1.8; return Math.abs(px - P.x) < 22 * s && py > P.y - 40 * s && py < P.y + 6 * s; }
-let petAmt = 3000;
+let petAmt = 3000, petPats = 0;
 function openPet() {
   const P = petNow(); if (!P) return; const { pet } = P;
-  $("petFace").textContent = pet.face; $("petTitle").textContent = `${pet.name}에게 간식 주기`;
-  $("petMsg").innerHTML = DONATE_URL ? "한강 돗자리는 무료로 운영돼요.<br>간식 한 번이 서버를 하루 더 켜 줘요 🐾" : `후원 창구는 준비 중이에요.<br>쓰다듬어만 줘도 ${pet.name}는 행복해요 🐾`;
-  $("petGo").classList.toggle("off", !DONATE_URL); $("petGo").textContent = DONATE_URL ? `${petAmt.toLocaleString()}원 간식 주기` : "준비 중이에요";
+  petPats = 0; $("petFace").textContent = pet.face; $("petTitle").textContent = `${pet.name}를 만났어요!`; $("petMsg").textContent = "살살 쓰다듬어 주세요 🐾";
+  $("petGo").textContent = `${petAmt.toLocaleString()}원 간식 주기`;
   $("petQR").classList.remove("on"); $("petQR").textContent = "";
   $("petBox").classList.add("on"); petBurst(pet.kind === "cat" ? "💕" : "💛");
 }
 function petBurst(e) { petHappy = performance.now() + 2500; for (let i = 0; i < 5; i++) petHearts.push({ e, dx: (Math.random() - .5) * 30, age: -i * .12 }); }
 $("petBox").querySelectorAll("[data-amt]").forEach(b => b.onclick = () => {
   petAmt = +b.dataset.amt; $("petBox").querySelectorAll("[data-amt]").forEach(x => x.classList.toggle("sel", x === b));
-  if (DONATE_URL) $("petGo").textContent = `${petAmt.toLocaleString()}원 간식 주기`;
+  $("petGo").textContent = `${petAmt.toLocaleString()}원 간식 주기`;
 });
 $("petGo").onclick = () => {
   const P = petNow(), name = P ? P.pet.name : "친구";
@@ -1604,7 +1604,13 @@ $("petGo").onclick = () => {
   }
   petBurst("🦴"); toast(`${P ? P.pet.say : "멍!"} ${name}가 꼬리를 흔들어요. 고마워요 💛`, 3500);
 };
-$("petPat").onclick = () => { const P = petNow(); petBurst("💗"); $("petBox").classList.remove("on"); if (P) toast(`${P.pet.say} ${P.pet.name}가 좋아해요`, 2200); };
+// 쓰다듬기: 창은 그대로 두고 누를 때마다 하트가 나고 반응이 조금씩 달라진다
+const PAT_SAY = ["좋아해요 💗", "꼬리를 막 흔들어요 💕", "눈을 스르르 감아요 😌", "배를 보여 줘요 🥰", "골골골… 행복해요 💞"];
+$("petPat").onclick = () => {
+  const P = petNow(); petBurst(["💗", "💕", "💞", "✨"][petPats % 4]);
+  const f = $("petFace"); f.style.animation = "none"; void f.offsetWidth; f.style.animation = "";
+  $("petMsg").textContent = P ? `${P.pet.say} ${P.pet.name}가 ${PAT_SAY[Math.min(petPats, PAT_SAY.length - 1)]}` : "💗"; petPats++;
+};
 $("petClose").onclick = () => $("petBox").classList.remove("on");
 
 // ---------- 루프 ----------
