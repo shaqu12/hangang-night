@@ -90,7 +90,7 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === "/stats") {
     res.writeHead(200, { "content-type": "application/json" });
-    return res.end(JSON.stringify({ total: total(), rooms: rooms.map(r => r.users.size), today: summary(day), yesterday: prevDay && summary(prevDay) }, null, 1));
+    return res.end(JSON.stringify({ total: total(), rooms: rooms.map(r => r.users.size), today: summary(day), yesterday: prevDay && summary(prevDay), days: history, since: startedAt }, null, 1));
   }
   if (req.url === "/og.jpg") { res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "public, max-age=86400" }); return res.end(ogImage); }
   const am = /^\/(amb-(?:river|city|crick)\.mp3)(?:\?v=\d+)?$/.exec(req.url);
@@ -117,14 +117,16 @@ function sendAudio(req, res, AUDIO) {
 // 그래서 매시 정각과 날짜가 바뀔 때 Render 로그에도 한 줄씩 남긴다.
 const kstDate = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const newDay = () => ({ date: kstDate(), visits: 0, people: new Set(), secs: [], peak: 0, sources: {} });
-let day = newDay(), prevDay = null;
+const startedAt = new Date().toISOString();   // 이 서버가 켜진 때(숫자는 이때부터 센다)
+let day = newDay(), prevDay = null, history = [];   // history: 지난 날 요약(최근 7일, 메모리에만 — 재시작·배포 때 지워지고 Render 로그 [stats] 줄이 남는다)
 function summary(d) {
   const s = [...d.secs].sort((a, b) => a - b), mid = s.length ? s[s.length >> 1] : 0;
   return { date: d.date, visits: d.visits, people: d.people.size, finished: s.length,
     avgMin: s.length ? +(s.reduce((a, b) => a + b, 0) / s.length / 60).toFixed(1) : 0, medianMin: +(mid / 60).toFixed(1),
     over5min: s.filter(x => x >= 300).length, peak: d.peak, sources: d.sources };
 }
-function rollDay() { if (day.date !== kstDate()) { fbCount.clear(); console.log("[stats] " + JSON.stringify(summary(day))); prevDay = day; day = newDay(); } }
+function rollDay() { if (day.date !== kstDate()) { fbCount.clear(); const sm = summary(day); console.log("[stats] " + JSON.stringify(sm)); history.unshift(sm); history = history.slice(0, 7); prevDay = day; day = newDay(); } }
+setInterval(() => { rollDay(); console.log("[stats-now] " + JSON.stringify(summary(day))); }, 3600e3);   // 한 시간마다 지금까지 숫자를 로그에 남겨 둔다
 setInterval(() => { rollDay(); if (new Date().getMinutes() === 0) console.log("[stats] " + JSON.stringify(summary(day))); }, 60000);
 const ipKey = ip => require("crypto").createHash("sha256").update(ip + day.date).digest("hex").slice(0, 12);  // IP는 저장하지 않고 하루짜리 해시만
 
@@ -303,6 +305,7 @@ setInterval(() => {
 
 // Render가 새 버전을 올리며 서버를 끌 때: 모두에게 알리고 닫는다. 페이지는 바로 다시 붙고 자리·행동·닉네임을 되찾는다
 process.on("SIGTERM", () => {
+  console.log("[stats 보관] " + JSON.stringify(summary(day)));                           // 배포로 꺼지기 직전 오늘 숫자
   for (const f of feedback) console.log("[바라는점 보관] " + JSON.stringify(f));        // 디스크가 지워지기 전에 로그에 한 번 더
   for (const r of rooms) broadcast(r, { t: "restart" });
   setTimeout(() => { for (const c of wss.clients) c.close(1012, "restart"); setTimeout(() => process.exit(0), 300); }, 200);

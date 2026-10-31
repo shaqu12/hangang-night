@@ -134,6 +134,11 @@
   #worryBox .grid button em { font-style: normal; font-size: 11px; color: #8a80aa; font-weight: 400; } #worryBox .grid button.sent { background: #d9d0f3; } #worryBox .grid.done button:not(.sent) { opacity: .45; }
   #worryBox small { color: #8a80aa; font-size: 11.5px; } #worryBox .x { all: unset; cursor: pointer; align-self: center; padding: 4px 12px; font-size: 13px; color: #8a80aa; }
   #together { display: block; font-size: 11px; color: var(--dim); font-weight: 400; }
+  #statsBox { position: fixed; inset: auto 16px 16px 16px; top: calc(max(12px, env(safe-area-inset-top)) + 56px); max-width: 520px; margin: 0 auto; background: rgba(14,20,40,.94); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: none; flex-direction: column; gap: 10px; z-index: 5; overflow-y: auto; }
+  #statsBox.on { display: flex; } #statsBox .head { display: flex; justify-content: space-between; align-items: center; } #statsBox button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; }
+  #statsBox .big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } #statsBox .big div { background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px 6px; text-align: center; } #statsBox .big b { display: block; font-size: 22px; color: #f3d9a4; } #statsBox .big span { font-size: 11.5px; color: var(--dim); }
+  #statsBox table { width: 100%; border-collapse: collapse; font-size: 13px; } #statsBox td, #statsBox th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: right; } #statsBox td:first-child, #statsBox th:first-child { text-align: left; } #statsBox th { color: var(--dim); font-weight: 500; }
+  #statsBox small { color: var(--dim); font-size: 11.5px; line-height: 1.5; }
   #notice { position: fixed; left: 50%; transform: translateX(-50%); top: calc(max(12px, env(safe-area-inset-top)) + 56px); width: min(440px, calc(100vw - 32px)); padding: 12px 40px 12px 14px; border-radius: 16px; background: rgba(40,32,12,.92); border: 1px solid rgba(245,200,76,.7); box-shadow: 0 8px 30px rgba(0,0,0,.45); color: #fff6dc; display: none; z-index: 7; font-size: 14px; line-height: 1.6; }
   #notice.on { display: block; } #notice b { color: #f5c84c; font-size: 13px; display: block; margin-bottom: 2px; }
   #notice div { max-height: 38vh; overflow-y: auto; white-space: pre-wrap; word-break: keep-all; }
@@ -176,6 +181,7 @@
 <div id="inbox"><div class="head"><b>📝 바라는 점</b><button id="inboxClose">닫기</button></div><small id="inboxNote"></small><div id="inboxList"></div></div>
 <div id="petBox" role="dialog" aria-label="강아지 고양이"><div class="face" id="petFace">🐶</div><b id="petTitle">몽이를 만났어요!</b><small id="petMsg">살살 쓰다듬어 주세요 🐾</small><button class="pat" id="petPat">🤚 쓰다듬기</button><div class="give"><small>서버비에 보태고 싶다면</small><div class="snacks"><button data-amt="1000">🦴 1,000</button><button data-amt="3000" class="sel">🍖 3,000</button><button data-amt="5000">🎂 5,000</button></div><div id="petQR"></div><button class="go" id="petGo">간식 주기</button></div><button id="petClose">닫기</button></div>
 <div id="worryBox" role="dialog" aria-label="누군가의 고민"><b id="worryHead">💭 누군가의 고민</b><p id="worryText"></p><div class="grid" id="worryBtns"></div><small id="worryNote">이름은 보이지 않아요 · 마음만 전해져요</small><button class="x" id="worryClose">닫기</button></div>
+<div id="statsBox"><div class="head"><b>📊 방문 통계</b><button id="statsClose">닫기</button></div><div id="statsBody"></div></div>
 <div id="notice" role="status"><b>📢 운영자 공지</b><div id="noticeText"></div><button id="noticeClose" aria-label="닫기">✕</button></div>
 <div id="nickBox" class="pill"><b>닉네임 바꾸기</b><div><input id="nickEd" maxlength="5" autocomplete="off" enterkeyhint="done" aria-label="새 닉네임"><button id="nickEdDice" aria-label="다른 이름">🎲</button></div><div class="btns"><button id="nickCancel">닫기</button><button id="nickSave" class="on">바꾸기</button></div></div>
 <div id="gate"><div class="box">
@@ -1754,6 +1760,21 @@ function drawBigStars(t, dt) {
   }
 }
 
+// ---------- 📊 방문 통계 (운영자) ----------
+// 서버 /stats: 오늘(한국 날짜) 고유 방문자(IP를 하루짜리 해시로만 셈)·접속 수·동시 최고·평균 머문 시간·유입, 지난 7일. 서버가 켜진 뒤부터 센다
+async function openStats() {
+  $("statsBox").classList.add("on"); const body = $("statsBody"); body.textContent = "불러오는 중…";
+  const r = await fetch("/stats", { cache: "no-store" }).then(x => x.json()).catch(() => null); if (!r) { body.textContent = "불러오지 못했어요"; return; }
+  const d = r.today, src = Object.entries(d.sources || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k === "direct" ? "바로" : k} ${v}`).join(" · ");
+  const since = new Date(r.since).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const rows = [d, ...(r.days || [])].map(x => `<tr><td>${x.date.slice(5)}</td><td>${x.people}</td><td>${x.visits}</td><td>${x.peak}</td><td>${x.avgMin}분</td></tr>`).join("");
+  body.innerHTML = `<div class="big"><div><b>${d.people}</b><span>오늘 들어온 사람</span></div><div><b>${r.total}</b><span>지금 접속</span></div><div><b>${d.peak}</b><span>오늘 동시 최고</span></div></div>
+    <small>접속 ${d.visits}번 · 평균 ${d.avgMin}분 머묾 · 5분 넘게 ${d.over5min}명${src ? " · 유입: " + src : ""}</small>
+    <table><tr><th>날짜</th><th>사람</th><th>접속</th><th>최고</th><th>평균</th></tr>${rows}</table>
+    <small>${since}부터 센 숫자예요. 무료 서버는 배포·재시작 때 숫자가 처음부터 다시 시작돼요. 대신 Render 로그에 한 시간마다 [stats-now], 하루가 끝날 때 [stats], 꺼지기 직전에 [stats 보관] 줄로 남아요.</small>`;
+}
+$("statsClose").onclick = () => $("statsBox").classList.remove("on");
+
 // ---------- 루프 ----------
 let last = performance.now();
 function frame(now) {
@@ -1889,11 +1910,12 @@ function buildActs() {
 // 운영자 버튼: 분수·유성우 바로 켜기 (서버가 운영자인지 다시 확인)
 function buildAdmin() {
   const bar = $("acts"), sep = document.createElement("div"); sep.className = "sep"; bar.appendChild(sep);
-  for (const [id, icon, name] of [["say", "💬", "말하기"], ["notice", "📢", "공지"], ["inbox", "📝", "바라는 점"], ["fountain", "⛲", "분수"], ["meteor", "🌠", "유성우"]] ) {
+  for (const [id, icon, name] of [["say", "💬", "말하기"], ["notice", "📢", "공지"], ["inbox", "📝", "바라는 점"], ["stats", "📊", "통계"], ["fountain", "⛲", "분수"], ["meteor", "🌠", "유성우"]] ) {
     const b = document.createElement("button"); b.className = "admin"; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", "운영자 " + name);
     b.onclick = () => {
       if (id === "say" || id === "notice") return openSay(id);
       if (id === "inbox") return openInbox();
+      if (id === "stats") return openStats();
       if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "admin", do: id }));
     };
     bar.appendChild(b);
