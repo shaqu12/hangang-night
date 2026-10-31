@@ -1466,7 +1466,7 @@ function drawPaperBoats(t, dt) {
     cx.restore();
   }
 }
-// 우체통 옆 작은 게시판: 누르면 바라는 점(✈️ 비행기와 같은 창·같은 운영자 함)
+// 우체통 옆 작은 게시판: 누르면 바라는 점 창(운영자 함으로 간다)
 function boardPos() { const m = mailboxPos(); return { x: m.x + 40 * m.s, y: m.y, s: m.s }; }
 function drawBoard(t) {
   const { x, y, s } = boardPos(), w = 17 * s, h = 13 * s, top = y - 30 * s;
@@ -1490,9 +1490,8 @@ function onBoard(px, py) { const { x, y, s } = boardPos(); return Math.abs(px - 
 function flyLetter() { const c = chars.get(me); envelopes.push({ x0: c ? c.x : W / 2, y0: c ? c.y - 40 * scaleAt(c.y) : H * .8, age: 0 }); }
 function onMailbox(px, py) { const { x, y, s } = mailboxPos(); return Math.abs(px - x) < 22 * s && py > y - 62 * s && py < y + 6 * s; }
 
-// ---------- ✈️ 하늘 비행기: 바라는 점 ----------
-// 가끔(처음 20~35초 뒤, 그다음 50~80초마다) 종이비행기가 '💬 바라는 점' 리본을 달고 하늘을 가로지른다. 누르면 운영자에게 가는 의견 창.
-// 비행기는 각자 화면에서만 날고(맞출 필요 없음), 보낸 글만 서버로 간다. 운영자는 게임 안 ✈️ 버튼으로 읽는다
+// ---------- 📝 바라는 점 ----------
+// 우체통 옆 게시판을 누르면 운영자에게 가는 의견 창. 보낸 글만 서버로 가고, 운영자는 게임 안 📝 버튼으로 읽는다
 let letterCount = 0;
 function openAsk() { $("askEd").value = ""; $("askBox").classList.add("on"); setTimeout(() => $("askEd").focus(), 50); }
 function closeAsk() { $("askBox").classList.remove("on"); }
