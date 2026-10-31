@@ -148,7 +148,7 @@ function pickRoom() {
   return r;
 }
 const adminHere = room => [...room.users.values()].some(o => o.admin);
-const pub = u => ({ id: u.id, seat: u.seat, color: u.color, act: u.act, nick: u.nick, g: u.g, admin: u.admin || undefined });
+const pub = u => ({ id: u.id, seat: u.seat, color: u.color, act: u.act, dir: u.dir, nick: u.nick, g: u.g, admin: u.admin || undefined });
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 function broadcast(room, msg, except) {
   const s = JSON.stringify(msg);
@@ -174,7 +174,7 @@ wss.on("connection", (ws, req) => {
   const from = (/[?&]from=([\w-]{1,20})/.exec(req.url) || [, "direct"])[1], since = Date.now();
   day.visits++; day.people.add(ipKey(ip)); day.sources[from] = (day.sources[from] || 0) + 1;
 
-  const u = { id: nextId++, seat: null, color: COLORS[Math.floor(Math.random() * COLORS.length)], ws, lastEmo: 0, lastSit: 0, act: "sit", lastAct: 0, lastFw: 0, lastNick: 0, nick: null };
+  const u = { id: nextId++, seat: null, color: COLORS[Math.floor(Math.random() * COLORS.length)], ws, lastEmo: 0, lastSit: 0, act: "sit", dir: "river", lastDir: 0, lastAct: 0, lastFw: 0, lastNick: 0, nick: null };
   let asked = null; try { asked = decodeURIComponent((/[?&]nick=([^&]{1,120})/.exec(req.url) || [])[1] || ""); } catch {}
   let key = null; try { key = decodeURIComponent((/[?&]admin=([^&]{1,200})/.exec(req.url) || [])[1] || ""); } catch {}
   u.admin = isAdminKey(key);
@@ -203,6 +203,11 @@ wss.on("connection", (ws, req) => {
       if (now - u.lastAct < ACT_GAP) return;
       u.lastAct = now; u.act = m.a;
       broadcast(room, { t: "act", id: u.id, a: u.act });
+    } else if (m.t === "dir" && (m.d === "river" || m.d === "front") && m.d !== u.dir) {   // 앉는 방향: 한강 보기 / 정면 보기
+      const now = Date.now();
+      if (now - u.lastDir < 700) return;
+      u.lastDir = now; u.dir = m.d;
+      broadcast(room, { t: "dir", id: u.id, d: u.dir });
     } else if (m.t === "admin" && u.admin && (m.do === "fountain" || m.do === "meteor")) {
       // 운영자 버튼: 분수는 쉬는 시간 무시하고 바로, 유성우는 22초
       const now = Date.now();
