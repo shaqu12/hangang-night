@@ -1478,38 +1478,6 @@ function drawBoard(t) {
   cx.fillStyle = "rgba(246,238,219,.95)"; cx.fillText("📝 바라는 점", x, by);
 }
 function onBoard(px, py) { const { x, y, s } = boardPos(); return Math.abs(px - x) < 20 * s && py > y - 58 * s && py < y + 6 * s; }
-// ---------- 한국 시간에 맞춘 하늘: 새벽·낮·노을·밤 ----------
-// 밤 장면 위에 하늘색을 '스크린'으로 덧칠해 밝힌다(밤엔 아무것도 안 칠함). 시각은 한국 시간, 주소에 ?hour=13 을 붙이면 그 시각으로 미리 보기
-const DAY_KEYS = [   // [시, 하늘 위, 지평선, 세기, 해 위치(0=없음 1=높이 2=노을)]
-  [0, [0, 0, 0], [0, 0, 0], 0, 0], [4.6, [0, 0, 0], [0, 0, 0], 0, 0], [6, [70, 90, 160], [255, 170, 150], .7, 2], [7.5, [105, 170, 245], [215, 232, 250], .95, 1],
-  [16.3, [105, 170, 245], [215, 232, 250], .95, 1], [17.8, [110, 80, 160], [255, 140, 70], .8, 2], [19.4, [0, 0, 0], [0, 0, 0], 0, 0], [24, [0, 0, 0], [0, 0, 0], 0, 0]];
-const HOUR_OVERRIDE = (() => { const m = /[?&]hour=([\d.]+)/.exec(location.search); return m ? +m[1] % 24 : null; })();
-function kstHour() { if (HOUR_OVERRIDE != null) return HOUR_OVERRIDE; const d = new Date(Date.now() + 9 * 3600e3); return d.getUTCHours() + d.getUTCMinutes() / 60; }
-function dayLook() {
-  const h = kstHour(); let i = 0; while (DAY_KEYS[i + 1][0] <= h) i++;
-  const a = DAY_KEYS[i], b = DAY_KEYS[i + 1], k = (h - a[0]) / (b[0] - a[0]), mix = (p, q) => p.map((v, j) => Math.round(v + (q[j] - v) * k));
-  const sun = a[4] && b[4] ? (k < .5 ? a[4] : b[4]) : a[4] || b[4], sunA = a[4] && b[4] ? 1 : a[4] ? 1 - k : k;   // 새벽→낮, 낮→노을은 중간에 해 모양이 바뀐다
-  return { top: mix(a[1], b[1]), hor: mix(a[2], b[2]), f: a[3] + (b[3] - a[3]) * k, sun, sunA, h };
-}
-function drawDaylight(t) {
-  const L = dayLook(); if (L.f < .01) return;
-  const sky = H * Y.S, pY = H * Y.P, bY = H * Y.B, rgb = c => `rgba(${c[0]},${c[1]},${c[2]},`;
-  cx.globalCompositeOperation = "screen";
-  let g = cx.createLinearGradient(0, 0, 0, sky + 10 * U); g.addColorStop(0, rgb(L.top) + L.f + ")"); g.addColorStop(1, rgb(L.hor) + L.f + ")");
-  cx.fillStyle = g; cx.fillRect(0, 0, W, sky + 10 * U);
-  cx.fillStyle = rgb(L.hor) + L.f * .45 + ")"; cx.fillRect(0, sky + 10 * U, W, pY - sky - 10 * U);                               // 도시 아래·다리
-  g = cx.createLinearGradient(0, pY, 0, bY); g.addColorStop(0, rgb(L.hor) + L.f * .5 + ")"); g.addColorStop(1, rgb(L.top) + L.f * .35 + ")");   // 강물에 비친 하늘
-  cx.fillStyle = g; cx.fillRect(0, pY, W, bY - pY);
-  cx.fillStyle = `rgba(${L.sun === 2 ? "255,170,110" : "150,200,140"},${L.f * (L.sun === 1 ? .38 : .22)})`; cx.fillRect(0, bY, W, H - bY);                  // 잔디·산책로
-  cx.globalCompositeOperation = "source-over";
-  if (L.sun && L.sunA > .01) {                                                                                                   // 해
-    const high = L.sun === 1, sx = high ? W * .22 : W * .16, sy = high ? H * .1 : sky * .78, r = (high ? 12 : 17) * U, col = high ? "255,253,240" : "255,175,100";
-    const sg = cx.createRadialGradient(sx, sy, 0, sx, sy, r * 6); sg.addColorStop(0, `rgba(${col},${(high ? .8 : .55) * L.sunA})`); sg.addColorStop(1, `rgba(${col},0)`);
-    cx.globalCompositeOperation = "lighter"; cx.fillStyle = sg; cx.fillRect(sx - r * 6, sy - r * 6, r * 12, r * 12); cx.globalCompositeOperation = "source-over";
-    cx.fillStyle = `rgba(${col},${L.sunA})`; cx.beginPath(); cx.arc(sx, sy, r, 0, TAU); cx.fill();
-    if (!high) for (let k = 0; k < 6; k++) streak(sx + Math.sin(t + k) * 2 * U, pY + 4 * U + k * 5 * U, (24 - k * 3) * U, (.3 - k * .045) * L.sunA, col);   // 노을이 강물에 길게
-  }
-}
 function flyLetter() { const c = chars.get(me); envelopes.push({ x0: c ? c.x : W / 2, y0: c ? c.y - 40 * scaleAt(c.y) : H * .8, age: 0 }); }
 function onMailbox(px, py) { const { x, y, s } = mailboxPos(); return Math.abs(px - x) < 22 * s && py > y - 62 * s && py < y + 6 * s; }
 
@@ -1581,7 +1549,6 @@ function frame(now) {
   const t = now / 1000;
   cx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawScene(t, dt);
-  drawDaylight(t);
   drawAurora(t, dt);
   drawFireworks(t, dt);
   drawLanterns(t, dt);
