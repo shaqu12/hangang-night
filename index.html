@@ -48,6 +48,10 @@
   #emo button.cool { opacity: .35; }
   #emo { flex-direction: column; align-items: center; } #emo .row { display: flex; gap: 2px; } #emo small { color: var(--dim); font-size: 11.5px; padding: 2px 8px 4px; white-space: nowrap; }
   #emo button { touch-action: none; }
+  #foodp { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px); display: none; grid-template-columns: repeat(4, 66px); gap: 4px; padding: 8px; }
+  #foodp.open { display: grid; border-radius: 22px; } #foodp b { grid-column: 1 / -1; font: 600 11px sans-serif; color: var(--dim); padding: 2px 4px 0; }
+  #foodp button { all: unset; cursor: pointer; height: 54px; display: grid; place-items: center; align-content: center; gap: 3px; border-radius: 14px; font-size: 22px; line-height: 1; }
+  #foodp button span { font-size: 10.5px; color: var(--dim); white-space: nowrap; } #foodp button.sel { background: rgba(243,217,164,.2); } #foodp button.sel span { color: var(--ink); }
   #actp { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px); display: none; grid-template-columns: repeat(4, 62px); gap: 4px; padding: 8px; }
   #actp.open { display: grid; }
   #actp button { all: unset; cursor: pointer; height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; border-radius: 14px; font-size: 22px; line-height: 1; }
@@ -169,6 +173,7 @@
 </div>
 <div id="emo" class="pill"><small>친구에게 끌어다 놓으면 날아가요 · 누르면 내 머리 위에</small><div class="row" id="emoRow"></div></div>
 <div id="actp" class="pill"></div>
+<div id="foodp" class="pill"></div>
 <div id="drag"></div>
 <div id="acts" class="pill"></div>
 <div id="fwInfo" class="pill"></div>
@@ -203,6 +208,7 @@ const ROOM_NAMES = ["여의도", "반포", "뚝섬", "망원", "이촌", "잠원
 const MATS = [["#3d6fb6", "#e9eef5"], ["#c4473f", "#f1e9df"], ["#3f8a63", "#e8efe4"], ["#d9a33c", "#f4ecd9"]];
 const HAIR = ["#2a211d", "#3b2a22", "#1d1c22", "#5a3d2b", "#2b2a33"];
 const TAU = Math.PI * 2;
+const FOOD_E = { kimbap: "🍙", oden: "🍢", hotdog: "🌭", popcorn: "🍿", icecream: "🍦", tangerine: "🍊", cocoa: "☕", juice: "🧃", bmilk: "🥛", soda: "🥤" };   // 손에 들고 먹는 것(라면·치킨은 따로 그림)
 
 function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
@@ -240,10 +246,10 @@ function layout() {
     }
   }
   moon.x = W * .8; moon.y = H * .15; moon.r = 13 * U;
-  drawCity(); drawBg(); makeClouds();
+  drawCity(); drawBg(); makeClouds(); zen = null;
   for (const c of chars.values()) {
     if (c.state === "sit") { c.x = seats[c.seat].x; c.y = seats[c.seat].y; }
-    else if (c.state === "stand") { const p = standSpot(c.id); c.x = p.x; c.y = p.y; }
+    else if (c.state === "stand") { const p = c.pos ? { x: c.pos.x * W, y: c.pos.y * H } : standSpot(c.id); c.x = p.x; c.y = p.y; }
   }
 }
 // 작게 줄였다가 다시 키우면 흐려진다 (canvas filter를 못 쓰는 사파리에서도 동작)
@@ -699,7 +705,8 @@ const seatTaken = i => [...chars.values()].some(c => c.seat === i && c.state !==
 
 function addChar(u, walk) {
   const c = { id: u.id, nick: u.nick || "", admin: !!u.admin, color: u.color, hair: HAIR[u.id % HAIR.length], style: u.g === "f" ? [2, 4][u.id % 2] : u.g === "m" ? [0, 1, 3][u.id % 3] : (u.id * 7) % 5, bow: u.g === "f", prop: (u.id * 13) % 7, act: u.act || "sit", dir: u.dir || "river", dirAt: -1e9, waveUntil: 0, seat: u.seat, emo: [], phase: Math.random() * 6, born: performance.now() };
-  const spot = u.seat == null ? standSpot(u.id) : seats[u.seat];
+  c.pos = u.seat == null && u.pos ? u.pos : null;
+  const spot = u.seat == null ? (c.pos ? { x: c.pos.x * W, y: c.pos.y * H } : standSpot(u.id)) : seats[u.seat];
   if (walk) {
     const fromLeft = spot.x < W / 2 ? Math.random() < .8 : Math.random() < .2;
     c.x = fromLeft ? -20 * U : W + 20 * U; c.y = pathY();
@@ -707,9 +714,20 @@ function addChar(u, walk) {
   } else { c.x = spot.x; c.y = spot.y; c.state = u.seat == null ? "stand" : "sit"; c.path = []; }
   chars.set(u.id, c);
 }
+// 바닥(산책로·잔디)을 누르면 그곳으로 걸어간다. 앉아 있었다면 일어나서 걸어감
+function goTo(id, x, y) {
+  const c = chars.get(id); if (!c || c.state === "leave") return;
+  c.seat = null; c.act = "sit"; c.pos = { x, y }; c.path = [{ x: x * W, y: y * H }]; c.state = "walk"; c.then = "stand";
+  if (id === me) { lastSeat = null; lastAct = "sit"; syncActs(); }
+}
+let lastGo = 0;
+function goGround(px, py) {
+  if (py < H * Y.path0 || performance.now() - lastGo < 450) return false;
+  lastGo = performance.now(); ws.send(JSON.stringify({ t: "go", x: px / W, y: Math.max(.5, py / H) })); return true;
+}
 function goSeat(id, seat) {
   const c = chars.get(id); if (!c) return;
-  c.seat = seat;
+  c.seat = seat; c.pos = null;
   const s = seats[seat];
   c.path = c.y < H * Y.path1 + 4 * U ? [{ x: s.x, y: c.y }, { x: s.x, y: s.y }] : [{ x: s.x, y: s.y }];
   c.state = "walk"; c.then = "sit";
@@ -748,6 +766,7 @@ function drawBody(c, t) {
   const s = scaleAt(c.y), x = c.x, moving = c.path.length > 0, upright = c.state !== "sit";
   const now = performance.now(), act = c.state === "sit" && !moving ? c.act || "sit" : "sit", ph = c.phase;
   const waving = c.waveUntil > now && act !== "lie";
+  const fe = FOOD_E[act], ch = c.cheer && now - c.cheer.at < 1800 ? c.cheer : null, chO = ch && chars.get(ch.with), chDir = chO && chO.x < c.x ? -1 : 1;
   const bob = moving ? Math.abs(Math.sin(t * 9 + ph)) * 2.2 * s : Math.sin(t * 1.2 + ph) * .6 * s;
   const y = c.y - bob;
   if (c.admin) {                                                                       // 운영자: 은은한 금빛 오라 + 둘레를 도는 반짝이
@@ -803,8 +822,8 @@ function drawBody(c, t) {
       cx.fillStyle = "rgba(255,255,255,.07)"; cx.beginPath(); cx.ellipse(x - 7 * s, y - 3 * s, 6 * s, 1.4 * s, .12, 0, TAU); cx.ellipse(x + 7 * s, y - 3 * s, 6 * s, 1.4 * s, -.12, 0, TAU); cx.fill();
       cx.fillStyle = "#e8e2d6"; cx.beginPath(); cx.ellipse(x - 2.5 * s, y + 1.2 * s, 2.6 * s, 1.5 * s, 0, 0, TAU); cx.ellipse(x + 2.5 * s, y + 1.2 * s, 2.6 * s, 1.5 * s, 0, 0, TAU); cx.fill();
       const bite0 = act === "chicken" && Math.sin(t * .8 + ph) > .55, fire0 = now - (c.fwAt || 0) < 900;
-      if (act !== "stretch" && act !== "star" && !bite0) arm(c, shL, { x: x - 9 * s, y: y - 3 * s }, s);
-      if (act !== "stretch" && act !== "star" && act !== "photo" && !waving && !fire0) arm(c, shR, { x: x + 9 * s, y: y - 3 * s }, s);
+      if (act !== "stretch" && act !== "star" && !bite0 && !(ch && chDir < 0)) arm(c, shL, { x: x - 9 * s, y: y - 3 * s }, s);
+      if (act !== "stretch" && act !== "star" && act !== "photo" && !waving && !fire0 && !fe && !(ch && chDir > 0)) arm(c, shR, { x: x + 9 * s, y: y - 3 * s }, s);
     }
     hy = bodyTop - 9 * s + (c.state === "sit" ? Math.sin(t * .4 + ph) * .4 * s : 0);
     hx = x + (c.state === "sit" ? Math.sin(t * .3 + ph * 2) * .8 * s : 0);
@@ -814,7 +833,18 @@ function drawBody(c, t) {
     const bite = act === "chicken" && Math.sin(t * .8 + ph) > .55;
     if (act === "chicken" && Math.sin(t * .8 + ph + .6) > .9) hy += 1.5 * s;
     if (act === "stretch") { const k = stretchK; arm(c, shL, { x: hx - (10 + 6 * k) * s, y: hy - (2 + 15 * k) * s }, s); arm(c, shR, { x: hx + (10 + 6 * k) * s, y: hy - (2 + 15 * k) * s }, s); }   // 머리 뒤로 팔 올리기
+    if (fe && !ch && Math.sin(t * .9 + ph) > .6) hy += 1 * s;                                  // 한 입
     drawHead(c, hx, hy, s, t, act === "star" ? .9 : 1);
+    if (ch) {                                                                                   // 짠! 잔을 상대 쪽으로 내밀어 부딪친다
+      const e = now - ch.at, k = Math.min(1, e / 450), clink = e > 450 && e < 800;
+      const hand = { x: x + chDir * (11 + 6 * k) * s, y: hy - (1 + 7 * k) * s + (clink ? Math.sin(e / 35) * 1.2 * s : 0) };
+      arm(c, chDir > 0 ? shR : shL, hand, s); emojiAt(ch.e, hand.x, hand.y - 4 * s, 11 * s);
+    } else if (fe) {                                                                            // 손에 든 음식·음료, 가끔 입으로
+      const bite = Math.sin(t * .9 + ph) > .6;
+      const hand = bite ? (front ? { x: hx + 3 * s, y: hy + 7 * s } : { x: hx + 10 * s, y: hy + 4 * s }) : { x: x + 10 * s, y: y - 7 * s };
+      arm(c, shR, hand, s); emojiAt(fe, hand.x, hand.y - 3.5 * s, 9.5 * s);
+      if (act === "cocoa" && !bite) { cx.strokeStyle = "rgba(255,255,255,.2)"; cx.lineWidth = .8 * s; const p0 = (t * .4) % 1; cx.globalAlpha = Math.sin(p0 * Math.PI); cx.beginPath(); cx.moveTo(hand.x, hand.y - 9 * s); cx.quadraticCurveTo(hand.x + 2 * s, hand.y - 12 * s - p0 * 4 * s, hand.x, hand.y - 15 * s - p0 * 6 * s); cx.stroke(); cx.globalAlpha = 1; }
+    }
     // 팔
     if (act === "chicken" && bite) arm(c, shL, { x: x - 17 * s, y: c.y - 3 * s }, s);
     const firing = now - (c.fwAt || 0) < 900 && act !== "lie";
@@ -941,6 +971,7 @@ function drawFace(c, hx, hy, s, t, sq) {
     cx.fillStyle = "#f2efe8"; cx.beginPath(); cx.arc(hx, hy - 14 * s * sq, 3 * s, 0, TAU); cx.fill();
   }
 }
+function emojiAt(e, x, y, size) { cx.font = `${Math.max(8, size)}px sans-serif`; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText(e, x, y); cx.textBaseline = "alphabetic"; }
 function drawHead(c, hx, hy, s, t, sq) {
   // 걸을 때·서 있을 때는 뒷모습, 돗자리에 앉으면 화면 쪽을 보고 앉아 늘 얼굴이 보인다. 이모지 등은 표정만 잠깐 바뀜
   if (c.state === "sit" && !c.path.length && c.dir === "front") { const m = c.mood; if (!(c.faceUntil > performance.now())) c.mood = "smile"; drawFace(c, hx, hy, s, t, sq); c.mood = m; }
@@ -1022,6 +1053,10 @@ function freeSeatNear(i, px) {
 }
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
+  if (skyK > .5) {
+    closePanels(); if (performance.now() - lastStarSent >= 10000) zShoots.push({ x: e.clientX, y: e.clientY, d: e.clientX < W / 2 ? 1 : -1, k: 0, len: 220 * U });
+    return sendStar(e.clientX, Math.max(H * .06, Math.min(H * Y.S * .85, e.clientY - skyOff())));
+  }   // 누워 있을 땐 하늘만 보인다: 어디를 눌러도 별똥별
   { const w = !aiming && worryAt(e.clientX, e.clientY); if (w) return openWorry(w); }        // 고민 풍선: 공감 보내기
   if (!aiming && onPet(e.clientX, e.clientY)) return openPet();
   if (!aiming && onSky(e.clientX, e.clientY)) return sendStar(e.clientX, e.clientY);        // 하늘: 별똥별 신호                         // 산책로 강아지·고양이: 간식 후원
@@ -1029,10 +1064,17 @@ cv.addEventListener("pointerdown", e => {
   if (!aiming && onMailbox(e.clientX, e.clientY)) return openBox("fb");                // 나에게 하고 싶은 말
   if (!aiming && onMyChar(e.clientX, e.clientY)) return openNickBox();                  // 내 캐릭터(이름표)를 누르면 닉네임 바꾸기
   const other = !aiming && charAt(e.clientX, e.clientY);
-  if (other) { closePanels(); $("emo").classList.add("open"); return toast(`😊 이모지를 끌어서 ${other.nick}님에게 놓아 보세요`, 2600); }   // 다른 사람을 누르면 마음 보내기 안내
+  if (other) {
+    const mc = chars.get(me);
+    if (mc && DRINKS.includes(mc.act)) {                                                       // 마실 것을 들고 있으면 짠!
+      if (Math.hypot(other.x - mc.x, other.y - mc.y) > 95 * U) return toast("옆에 가까이 있는 사람과 짠! 할 수 있어요", 2200);
+      if (performance.now() - (mc.lastCheers || 0) < 2500) return;
+      mc.lastCheers = performance.now(); ws.send(JSON.stringify({ t: "cheers", to: other.id })); return;
+    }
+    closePanels(); $("emo").classList.add("open"); return toast(`😊 이모지를 끌어서 ${other.nick}님에게 놓아 보세요`, 2600); }   // 다른 사람을 누르면 마음 보내기 안내
   if (aiming || !canPick()) return;
   const i = seatAt(e.clientX, e.clientY);
-  if (i < 0) return;
+  if (i < 0) return goGround(e.clientX, e.clientY);
   const k = freeSeatNear(i, e.clientX);
   if (k < 0) { const mineHere = groups[seats[i].g].seats.some(j => { const c = chars.get(me); return c && c.seat === j; }); if (!mineHere) toast("이 돗자리는 가득 찼어요. 빈 돗자리를 골라 주세요", 2200); return; }
   ws.send(JSON.stringify({ t: "sit", seat: k }));
@@ -1870,10 +1912,61 @@ $("statsClose").onclick = () => $("statsBox").classList.remove("on");
 
 // ---------- 루프 ----------
 let last = performance.now();
+// 짠! 두 잔이 만나는 곳에 '짠!' 글자와 반짝이
+const cheersFx = [];
+function drawCheers(t, dt) {
+  const now = performance.now();
+  for (let i = cheersFx.length - 1; i >= 0; i--) {
+    const f = cheersFx[i], e = now - f.at, a = chars.get(f.a), b = chars.get(f.b);
+    if (e > 1900 || !a || !b) { cheersFx.splice(i, 1); continue; }
+    if (e < 450) continue;
+    const s = (scaleAt(a.y) + scaleAt(b.y)) / 2, mx = (a.x + b.x) / 2, my = Math.min(a.y, b.y) - 46 * s, k = (e - 450) / 1450;
+    if (!f.sp.length) for (let j = 0; j < 12; j++) { const an = j / 12 * TAU; f.sp.push({ dx: Math.cos(an), dy: Math.sin(an) }); }
+    const al = Math.min(1, (1 - k) * 2.5);
+    for (const p of f.sp) { const r = (6 + 22 * Math.sqrt(k)) * s; cx.fillStyle = `rgba(255,236,170,${al})`; cx.fillRect(mx + p.dx * r - 1 * s, my + 8 * s + p.dy * r * .7 - 1 * s, 2 * s, 2 * s); }
+    const pop = 1 + .35 * Math.max(0, 1 - k * 5);
+    cx.save(); cx.translate(mx, my - k * 10 * s); cx.scale(pop, pop); cx.globalAlpha = al;
+    cx.font = `800 ${Math.max(12, 12 * s)}px sans-serif`; cx.textAlign = "center"; cx.lineWidth = 3 * s; cx.strokeStyle = "rgba(60,30,20,.7)"; cx.strokeText("짠!", 0, 0); cx.fillStyle = "#ffe7a8"; cx.fillText("짠!", 0, 0);
+    cx.restore(); cx.globalAlpha = 1;
+  }
+}
+// ---------- 🛌 누워서 하늘 보기 ----------
+// 내가 누우면 화면이 위로 올라가 머리 위 밤하늘(은하수·별·큰 별똥별)이 보인다. 장면 전체를 아래로 밀고 그 위에 하늘 한 장을 더 그리는 방식
+let skyK = 0, zen = null, zStars = [], zShoots = [], nextZ = 1.5;
+function makeZenith() {
+  let g; [zen, g] = canvas(W, H);
+  const r = rng(33), gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, "#010211"); gr.addColorStop(.7, "#030520"); gr.addColorStop(1, "#04061a");
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.save(); g.translate(W / 2, H / 2); g.rotate(-.55);                                          // 은하수: 비스듬한 띠에 옅은 빛과 잔별
+  for (let i = 0; i < 26; i++) { const x = (r() - .5) * Math.max(W, H) * 1.6, y = (r() - .5) * 60 * U, rr = (40 + r() * 70) * U, q = g.createRadialGradient(x, y, 0, x, y, rr); q.addColorStop(0, `rgba(${r() < .5 ? "150,140,220" : "200,170,220"},.07)`); q.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = q; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+  for (let i = 0; i < 900; i++) { const x = (r() - .5) * Math.max(W, H) * 1.6, y = (r() + r() + r() - 1.5) * 50 * U; g.fillStyle = `rgba(235,235,255,${.15 + r() * .5})`; g.fillRect(x, y, .8, .8); }
+  g.restore();
+  for (let i = 0; i < 420; i++) { const sz = r() < .08 ? 1.6 : r() < .3 ? 1.1 : .7; g.fillStyle = `rgba(255,${235 + r() * 20 | 0},${215 + r() * 40 | 0},${.3 + r() * .6})`; g.fillRect(r() * W, r() * H, sz, sz); }
+  zStars = []; for (let i = 0; i < 50; i++) zStars.push({ x: r() * W, y: r() * H, ph: r() * TAU, sp: .6 + r() * 1.6, s: r() < .3 ? 2.2 : 1.4 });
+}
+function drawZenith(t, dt, off) {
+  const y0 = off - H; cx.drawImage(zen, 0, y0, W, H);
+  for (const z of zStars) { const a = .45 + .55 * Math.sin(t * z.sp + z.ph); cx.fillStyle = `rgba(255,248,230,${a})`; const r = z.s * U * .8; cx.fillRect(z.x - r / 2, y0 + z.y - r * 1.6, r, r * 3.2); cx.fillRect(z.x - r * 1.6, y0 + z.y - r / 2, r * 3.2, r); }
+}
+function drawZShoots(t, dt) {                                                                  // 누워 있는 동안 3~6초마다 크고 긴 별똥별
+  if (skyK > .7 && (nextZ -= dt) < 0) { nextZ = 3 + Math.random() * 3; const d = Math.random() < .5 ? -1 : 1; zShoots.push({ x: W * (d > 0 ? .1 + Math.random() * .4 : .5 + Math.random() * .4), y: H * (.08 + Math.random() * .35), d, k: 0, len: (160 + Math.random() * 120) * U }); }
+  for (let i = zShoots.length - 1; i >= 0; i--) {
+    const m = zShoots[i]; m.k += dt / 1.3; if (m.k >= 1) { zShoots.splice(i, 1); continue; }
+    const hx = m.x + m.d * m.k * m.len, hy = m.y + m.k * m.len * .45, a = Math.sin(m.k * Math.PI) * skyK, tx = hx - m.d * 90 * U, ty = hy - 40 * U;
+    const g = cx.createLinearGradient(hx, hy, tx, ty); g.addColorStop(0, `rgba(255,252,235,${a})`); g.addColorStop(.35, `rgba(190,215,255,${a * .5})`); g.addColorStop(1, "rgba(190,215,255,0)");
+    cx.strokeStyle = g; cx.lineWidth = 3 * U; cx.lineCap = "round"; cx.beginPath(); cx.moveTo(hx, hy); cx.lineTo(tx, ty); cx.stroke();
+    const sg = cx.createRadialGradient(hx, hy, 0, hx, hy, 12 * U); sg.addColorStop(0, `rgba(255,255,245,${a})`); sg.addColorStop(1, "rgba(255,255,245,0)"); cx.fillStyle = sg; cx.fillRect(hx - 12 * U, hy - 12 * U, 24 * U, 24 * U);
+  }
+}
+const skyOff = () => { const e = skyK * skyK * (3 - 2 * skyK); return e * H * .72; };
 function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   const t = now / 1000;
   cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  { const mc = chars.get(me), want = mc && mc.state === "sit" && !mc.path.length && mc.act === "lie" ? 1 : 0; skyK += (want - skyK) * Math.min(1, dt * 1.6); if (Math.abs(want - skyK) < .002) skyK = want; }
+  const off = skyK > 0 ? skyOff() : 0;
+  if (off > 0) { if (!zen) makeZenith(); drawZenith(t, dt, off); cx.translate(0, off); }
   drawScene(t, dt);
   drawAurora(t, dt);
   drawFireworks(t, dt);
@@ -1890,7 +1983,9 @@ function frame(now) {
   [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
   drawAim(t);
   drawHearts(t, dt);
+  drawCheers(t, dt);
   if (dragEmo && dragEmo.over != null) { const o = chars.get(dragEmo.over); if (o) { const s2 = scaleAt(o.y); cx.strokeStyle = `rgba(243,217,164,${.6 + .3 * Math.sin(t * 8)})`; cx.lineWidth = 2 * U; cx.beginPath(); cx.ellipse(o.x, o.y, 16 * s2, 5 * s2, 0, 0, TAU); cx.stroke(); } }
+  if (off > 0) { cx.setTransform(DPR, 0, 0, DPR, 0, 0); drawZShoots(t, dt); }
   cx.drawImage(vignette, 0, 0, W, H);
   requestAnimationFrame(frame);
 }
@@ -1944,7 +2039,7 @@ function connect() {
     else if (m.t === "adminHere") adminOn = m.on;                                         // 알림 없이 오로라만
     else if (m.t === "say") { const c = chars.get(m.id); if (c) { const lines = sayLines(m.text); c.say = { lines, at: performance.now(), dur: Math.max(8000, Math.ceil(lines.length / 5) * 5000 + 1000) }; face(m.id, 6000); } }
     else if (m.t === "notice") showNotice(m.text);
-    else if (m.t === "star") { bigStars.push({ x: m.x * W, y: m.y * H, d: m.d, k: 0, sp: [] }); if (m.id === me) toast("🌠 별똥별에 소원을 빌어 봐요", 2200); else if (performance.now() - lastStarToast > 8000) { lastStarToast = performance.now(); const c = chars.get(m.id); toast(`🌠 방금 별똥별 봤어요? ${c ? c.nick + "님이 보냈어요" : ""}`, 2600); } }
+    else if (m.t === "star") { if (skyK > .5 && m.id !== me) zShoots.push({ x: m.x * W, y: Math.min(H * .6, m.y * H * 1.6), d: m.d || 1, k: 0, len: 220 * U }); bigStars.push({ x: m.x * W, y: m.y * H, d: m.d, k: 0, sp: [] }); if (m.id === me) toast("🌠 별똥별에 소원을 빌어 봐요", 2200); else if (performance.now() - lastStarToast > 8000) { lastStarToast = performance.now(); const c = chars.get(m.id); toast(`🌠 방금 별똥별 봤어요? ${c ? c.nick + "님이 보냈어요" : ""}`, 2600); } }
     else if (m.t === "worry") { addWorry(m.w, m.mine); if (m.mine) { $("fbEd").value = ""; closeBox("fb"); toast("🎈 고민 풍선이 떠올랐어요. 이름은 보이지 않아요", 3500); } }
     else if (m.t === "worryBad") toast(m.why === "wait" ? "함께 나누기는 3분에 한 번이에요" : m.why === "bad" ? "욕설이나 야한 말은 쓸 수 없어요. 고운 말로 적어 주세요" : m.why === "crisis" ? "이 마음은 혼자 견디지 않아도 돼요. 109(24시간)로 이야기해 주세요" : "한 줄이라도 적어 주세요", 3200);
     else if (m.t === "cheer") { const w = worries.find(x => x.id === m.w); if (w) { w.cheers[m.k]++; w.until = performance.now() + m.left; w.glow = 1.5; if (worryOpen === w) openWorry(w); if (w.mine) toast(`${CHEERS[m.k][0]} 누군가 "${CHEERS[m.k][1]}" 하고 곁에 있어요`, 3500); } }
@@ -1960,6 +2055,13 @@ function connect() {
     else if (m.t === "fountain") startFountain(0);
     else if (m.t === "meteor") { forceShowerUntil = performance.now() + 22000; toast("🌠 유성우가 내려요. 소원 하나 빌어 봐요", 4000); }
     else if (m.t === "act") { const c = chars.get(m.id); if (c) c.act = m.a; }
+    else if (m.t === "go") goTo(m.id, m.x, m.y);
+    else if (m.t === "cheers") {
+      const a = chars.get(m.from), b = chars.get(m.to), now = performance.now(); if (!a || !b) return;
+      a.cheer = { with: b.id, at: now, e: FOOD_E[m.a] || "☕" }; b.cheer = { with: a.id, at: now, e: FOOD_E[m.b] || "☕" };
+      face(a.id, 2600, "😂"); face(b.id, 2600, "😂"); cheersFx.push({ a: a.id, b: b.id, at: now, sp: [] });
+      if (m.to === me) toast(`🥂 ${a.nick}님이 짠! 했어요`, 2400); else if (m.from === me) toast(`짠! ${b.nick}님과 건배했어요`, 2000);
+    }
     else if (m.t === "dir") { const c = chars.get(m.id); if (c && c.dir !== m.d) { c.dir = m.d; c.dirAt = performance.now(); } if (m.id === me) syncDir(); }
     else if (m.t === "count") $("cnt").textContent = m.room;
     else if (m.t === "full") { toast(m.why === "ip" ? "이 기기에서 너무 많이 접속했어요" : "지금 모든 강변이 꽉 찼어요", 0); retry = 99; }
@@ -1974,7 +2076,11 @@ function connect() {
 }
 
 // 돗자리 위 행동 (server.js ACTS와 같아야 함). 같은 걸 다시 누르면 그냥 앉기로
-const ACTS = [["sit", "🧘", "앉기"], ["lie", "🛌", "눕기"], ["star", "🌟", "별 보기"], ["ramen", "🍜", "라면"], ["chicken", "🍗", "치킨"], ["photo", "📸", "사진"], ["stretch", "🙆", "기지개"], ["doze", "😪", "꾸벅"]];
+const ACTS = [["sit", "🧘", "앉기"], ["lie", "🛌", "눕기"], ["star", "🌟", "별 보기"], ["photo", "📸", "사진"], ["stretch", "🙆", "기지개"], ["doze", "😪", "꾸벅"]];
+// 🍽 먹기 판: 먹을 것 8 + 마실 것 4 (마실 것을 들고 옆 사람을 누르면 짠!)
+const FOODS = [["ramen", "🍜", "라면"], ["chicken", "🍗", "치킨"], ["kimbap", "🍙", "삼각김밥"], ["oden", "🍢", "어묵"], ["hotdog", "🌭", "핫도그"], ["popcorn", "🍿", "팝콘"], ["icecream", "🍦", "아이스크림"], ["tangerine", "🍊", "귤"],
+  ["cocoa", "☕", "코코아"], ["juice", "🧃", "주스"], ["bmilk", "🥛", "바나나우유"], ["soda", "🥤", "탄산음료"]];
+const DRINKS = ["cocoa", "juice", "bmilk", "soda"];
 // 📷 한강 사진: 지금 화면을 한 장으로 저장·공유 (서버에 아무것도 올리지 않는다). 구석에 작은 사이트 이름
 let snapping = false;
 function snapPhoto() {
@@ -2012,6 +2118,11 @@ function buildActs() {
   const bar = $("acts");
   const eb = document.createElement("button"); eb.innerHTML = "😊<span>마음</span>"; eb.setAttribute("aria-label", "마음 보내기"); eb.onclick = () => { const o = !$("emo").classList.contains("open"); closePanels(); $("emo").classList.toggle("open", o); if (o && aiming) setAiming(false); };
   bar.appendChild(eb);
+  const lieB = document.createElement("button"); lieB.id = "lieBtn"; lieB.setAttribute("aria-label", "눕기"); lieB.onclick = () => { if (aiming) setAiming(false); doAct("lie"); };
+  bar.appendChild(lieB);
+  const foodB = document.createElement("button"); foodB.id = "foodBtn"; foodB.setAttribute("aria-label", "먹기");
+  foodB.onclick = () => { const o = !$("foodp").classList.contains("open"); closePanels(); if (aiming) setAiming(false); $("foodp").classList.toggle("open", o); };
+  bar.appendChild(foodB);
   const fb = document.createElement("button"); fb.dataset.fw = 1; fb.innerHTML = "🎆<span>폭죽</span>"; fb.setAttribute("aria-label", "폭죽");
   fb.onclick = () => {
     const c = chars.get(me);
@@ -2038,17 +2149,13 @@ function buildActs() {
   const ab = document.createElement("button"); ab.id = "actBtn"; ab.innerHTML = "🧘<span>행동</span>"; ab.setAttribute("aria-label", "행동");   // 내 행동(눕기·라면 등)은 따로 모아 둔다
   ab.onclick = () => { const o = !$("actp").classList.contains("open"); closePanels(); if (aiming) setAiming(false); $("actp").classList.toggle("open", o); };
   bar.appendChild(ab);
-  for (const [id, icon, name] of ACTS) {
+  const mkAct = (box, [id, icon, name]) => {
     const b = document.createElement("button"); b.dataset.act = id; b.innerHTML = `${icon}<span>${name}</span>`; b.setAttribute("aria-label", name);
-    b.onclick = () => {
-      const c = chars.get(me);
-      if (!c || c.state !== "sit" && !(c.state === "walk" && c.then === "sit")) { closePanels(); return toast("먼저 빈 돗자리를 눌러 앉아 주세요", 2500); }
-      const a = c.act === id ? "sit" : id;
-      c.act = a; lastAct = a; syncActs(); closePanels();
-      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "act", a }));
-    };
-    $("actp").appendChild(b);
-  }
+    b.onclick = () => doAct(id); $(box).appendChild(b);
+  };
+  ACTS.forEach(x => mkAct("actp", x));
+  const hd = t => { const h = document.createElement("b"); h.textContent = t; $("foodp").appendChild(h); };
+  hd("먹을 것"); FOODS.slice(0, 8).forEach(x => mkAct("foodp", x)); hd("마실 것 · 들고 옆 사람을 누르면 짠!"); FOODS.slice(8).forEach(x => mkAct("foodp", x));
   bar.classList.add("on"); syncActs();
   const more = () => bar.classList.toggle("more", bar.scrollWidth - bar.clientWidth - bar.scrollLeft > 4);   // 오른쪽에 버튼이 더 있으면 흐리게
   bar.addEventListener("scroll", more); addEventListener("resize", more); more();
@@ -2073,9 +2180,21 @@ function syncInboxBtn() { const b = $("acts").querySelector('[aria-label="운영
 function syncActs() {
   const c = chars.get(me), a = c ? c.act : "sit";
   $("actp").querySelectorAll("button[data-act]").forEach(b => b.classList.toggle("sel", b.dataset.act === a));
+  $("foodp").querySelectorAll("button[data-act]").forEach(b => b.classList.toggle("sel", b.dataset.act === a));
   const cur = ACTS.find(x => x[0] === a) || ACTS[0], ab = $("actBtn"); if (ab) ab.innerHTML = `${cur[1]}<span>행동</span>`;
+  const fd = FOODS.find(x => x[0] === a), fb = $("foodBtn"); if (fb) fb.innerHTML = `${fd ? fd[1] : "🍽"}<span>먹기</span>`;
+  const lb = $("lieBtn"); if (lb) { lb.innerHTML = a === "lie" ? "🧍<span>일어나기</span>" : "🛌<span>눕기</span>"; lb.classList.toggle("sel", a === "lie"); }
 }
-function closePanels() { $("emo").classList.remove("open"); $("actp").classList.remove("open"); }
+function doAct(id) {
+  const c = chars.get(me);
+  if (!c || c.state !== "sit" && !(c.state === "walk" && c.then === "sit")) { closePanels(); return toast("먼저 빈 돗자리를 눌러 앉아 주세요", 2500); }
+  const a = c.act === id ? "sit" : id;
+  c.act = a; lastAct = a; syncActs(); closePanels();
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "act", a }));
+  if (a === "lie") toast("🛌 누워서 하늘을 봐요. 하늘을 누르면 별똥별이 떨어져요", 3200);
+  else if (DRINKS.includes(a)) toast(`${FOOD_E[a]} 옆 사람을 누르면 짠! 할 수 있어요`, 2800);
+}
+function closePanels() { $("emo").classList.remove("open"); $("actp").classList.remove("open"); $("foodp").classList.remove("open"); }
 // 마음: 이모지를 누르면 내 머리 위에, 끌어서 다른 사람 캐릭터에 놓으면 그 사람에게 날아간다
 let dragEmo = null;
 function emoCool() { const bar = $("emoRow"); bar.dataset.cool = 1; bar.querySelectorAll("button").forEach(x => x.classList.add("cool")); setTimeout(() => { delete bar.dataset.cool; bar.querySelectorAll("button").forEach(x => x.classList.remove("cool")); }, 1300); }

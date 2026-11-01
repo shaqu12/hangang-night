@@ -13,7 +13,8 @@ const EMOJIS = ["❤️", "👍", "😂", "🥺", "👋", "✨", "🌙"];   // �
 const COLORS = ["#e9a87c", "#8fb8de", "#b8d98f", "#e6c76f", "#d79bc4", "#9fd6cf", "#f0f0ea", "#c9a6f2", "#f29b9b", "#7fa3c9"];
 const EMO_GAP = 1200;        // 이모지 최소 간격(ms)
 const SIT_GAP = 600;         // 자리 옮기기 최소 간격(ms)
-const ACTS = ["sit", "lie", "star", "ramen", "chicken", "photo", "stretch", "doze"];   // 돗자리 위 행동
+const ACTS = ["sit", "lie", "star", "ramen", "chicken", "photo", "stretch", "doze", "kimbap", "oden", "hotdog", "popcorn", "icecream", "tangerine", "cocoa", "juice", "bmilk", "soda"];
+const DRINKS = ["cocoa", "juice", "bmilk", "soda"];   // 짠! 할 수 있는 마실 것 (술 없음)   // 돗자리 위 행동
 const ACT_GAP = 400;
 const FW_GAP = 2500;         // 폭죽 최소 간격(ms). 연타로 하늘을 덮지 못하게
 const FOUNTAIN_P = +process.env.FOUNTAIN_P || .12;   // 폭죽 1발마다 다리 무지개분수가 켜질 확률
@@ -148,7 +149,7 @@ function pickRoom() {
   return r;
 }
 const adminHere = room => [...room.users.values()].some(o => o.admin);
-const pub = u => ({ id: u.id, seat: u.seat, color: u.color, act: u.act, dir: u.dir, nick: u.nick, g: u.g, admin: u.admin || undefined });
+const pub = u => ({ id: u.id, seat: u.seat, color: u.color, act: u.act, dir: u.dir, pos: u.seat == null ? u.pos : undefined, nick: u.nick, g: u.g, admin: u.admin || undefined });
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 function broadcast(room, msg, except) {
   const s = JSON.stringify(msg);
@@ -281,6 +282,17 @@ wss.on("connection", (ws, req) => {
       if (now - room.fountainAt > FOUNTAIN_LEN + FOUNTAIN_GAP && Math.random() < FOUNTAIN_P) { room.fountainAt = now + 1600; setTimeout(() => broadcast(room, { t: "fountain" }), 1600); }   // 폭죽이 터질 즈음 켠다
       const x = typeof m.x === "number" && m.x >= 0 && m.x <= 1 ? Math.round(m.x * 1000) / 1000 : undefined;   // 조준한 가로 위치(화면 비율)
       broadcast(room, { t: "fw", id: u.id, p: Math.round(m.p * 100) / 100, x, k: r(FW_KINDS), h: r(FW_COLORS), h2: r(FW_COLORS), s: r(1e9), gold: u.admin || undefined });
+    } else if (m.t === "go" && typeof m.x === "number" && typeof m.y === "number" && m.x >= 0 && m.x <= 1 && m.y >= .5 && m.y <= 1) {   // 바닥을 눌러 걸어가기(자리에서 일어남)
+      const now = Date.now();
+      if (now - (u.lastGo || 0) < 400) return;
+      u.lastGo = now; u.seat = null; u.act = "sit"; u.pos = { x: Math.round(m.x * 1e4) / 1e4, y: Math.round(m.y * 1e4) / 1e4 };
+      broadcast(room, { t: "go", id: u.id, x: u.pos.x, y: u.pos.y });
+    } else if (m.t === "cheers" && Number.isInteger(m.to) && m.to !== u.id && room.users.has(m.to)) {   // 옆 사람과 짠
+      const now = Date.now();
+      if (now - (u.lastCheers || 0) < 2500) return;
+      u.lastCheers = now;
+      const o = room.users.get(m.to);
+      broadcast(room, { t: "cheers", from: u.id, to: m.to, a: DRINKS.includes(u.act) ? u.act : "cocoa", b: DRINKS.includes(o.act) ? o.act : "cocoa" });
     } else if (m.t === "sit" && Number.isInteger(m.seat) && m.seat >= 0 && m.seat < CAP && m.seat !== u.seat) {
       const now = Date.now();
       if (now - u.lastSit < SIT_GAP) return;
