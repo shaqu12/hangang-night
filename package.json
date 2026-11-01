@@ -4,7 +4,14 @@
   "private": true,
   "description": "밤 한강 돗자리: 접속자가 모여 앉는 실시간 힐링 공간",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=18" },
-  "dependencies": { "ws": "^8.18.0" }
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "three": "^0.187.0",
+    "ws": "^8.18.0"
+  }
 }

@@ -76,6 +76,7 @@
   #gate p { margin: 0 0 28px; color: var(--dim); font-size: 15px; line-height: 1.6; }
   #gate button { all: unset; cursor: pointer; padding: 14px 30px; border-radius: 999px; background: #f3d9a4; color: #1b1a22; font-weight: 700; font-size: 16px; }
   #gate small { display: block; margin-top: 18px; color: var(--dim); font-size: 12px; }
+  #chRow { display: flex; gap: 6px; justify-content: center; align-items: center; margin: 12px auto 0; font-size: 12px; color: var(--dim); } #chRow button { all: unset; cursor: pointer; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; color: var(--dim); } #chRow button.on { background: rgba(243,217,164,.2); border-color: rgba(243,217,164,.6); color: var(--ink); cursor: default; }
   #gRow { display: flex; gap: 5px; justify-content: center; margin: 10px auto 0; } #gRow button { all: unset; cursor: pointer; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; color: var(--dim); } #gRow button.on { background: rgba(243,217,164,.2); border-color: rgba(243,217,164,.6); color: var(--ink); }
   #nickRow { display: flex; gap: 6px; justify-content: center; margin: 0 auto; width: min(260px, 100%); }
   #nickRow input, #nickBox input, #wishBox input, #sayBox input, #fbBox textarea { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--ink); font: inherit; font-size: 16px; text-align: center; outline: none; }
@@ -196,6 +197,7 @@
   <div id="gRow" role="radiogroup" aria-label="캐릭터"><button data-g="m">👦 남자</button><button data-g="f">👧 여자</button><button data-g="">🙂 선택 안 함</button></div>
   <small class="nickHint">닉네임(5자까지)은 그대로 둬도 돼요. 폭죽을 쏘면 하늘에 이름이 떠요.</small>
   <button id="go">돗자리 펴기</button>
+  <div id="chRow"><span>채널</span><button class="on" disabled>여의도 01</button><button id="ch02">여의도 02 · 3D 시험</button></div>
   <small id="soundNote">말은 못 하고 이모지만 보낼 수 있어요.</small>
 </div></div>
 
@@ -2294,6 +2296,7 @@ fetch("amb-river.mp3", { method: "HEAD" }).then(r => {
   $("soundNote").textContent = "밤 강변 소리가 작게 나와요(오른쪽 위에서 조절). 말은 못 하고 이모지만 보낼 수 있어요.";
 }).catch(() => {});
 
+$("ch02").onclick = () => { const n = $("nickIn").value.trim(); if (n) saveNick(n); location.href = "/3d" + location.search; };   // 3D 시험 채널(따로 만든 페이지)
 $("go").onclick = () => {
   const n = $("nickIn").value.replace(/\s+/g, " ").trim(); saveNick(n || myNick);
   $("gate").classList.add("off");

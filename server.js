@@ -82,6 +82,10 @@ function badText(text) {
 const DONATE_URL = /^https:\/\/[^\s"'<>\\]+$/.test(process.env.DONATE_URL || "") ? process.env.DONATE_URL : "https://qr.kakaopay.com/Ej7ooGTO1";   // 기본: 운영자 카카오페이 송금 링크
 const page = fs.readFileSync(path.join(__dirname, "index.html"), "utf8").replace("/*HN_BAD*/[]", JSON.stringify(MIND_BAD)).replace("/*HN_BAD_CHO*/[]", JSON.stringify(MIND_BAD_CHO)).replace('/*HN_DONATE*/""', JSON.stringify(DONATE_URL));
 const ogImage = fs.readFileSync(path.join(__dirname, "og.jpg"));
+// 여의도 02(3D 시험 채널): 따로 만든 3d.html + three.js(npm 패키지를 그대로 내려 준다, gzip)
+const page3d = fs.readFileSync(path.join(__dirname, "3d.html"), "utf8");
+const zlib = require("zlib"), vendor = {};
+for (const f of ["three.module.js", "three.core.js"]) { try { const b = fs.readFileSync(path.join(__dirname, "node_modules/three/build", f)); vendor[f] = { raw: b, gz: zlib.gzipSync(b, { level: 9 }) }; } catch {} }
 const server = http.createServer((req, res) => {
   if (req.url === "/health") { res.writeHead(200); return res.end("ok"); }
   if (req.url === "/admin/feedback") {
@@ -91,7 +95,14 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === "/stats") {
     res.writeHead(200, { "content-type": "application/json" });
-    return res.end(JSON.stringify({ total: total(), rooms: rooms.map(r => r.users.size), today: summary(day), yesterday: prevDay && summary(prevDay), days: history, since: startedAt }, null, 1));
+    return res.end(JSON.stringify({ total: total(), rooms: rooms.map(r => r.users.size), rooms3d: rooms3d.map(r => r.users.size), today: summary(day), yesterday: prevDay && summary(prevDay), days: history, since: startedAt }, null, 1));
+  }
+  if (/^\/3d(\?|$)/.test(req.url)) { res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" }); return res.end(page3d); }
+  const vm = /^\/vendor\/(three\.(?:module|core)\.js)$/.exec(req.url);
+  if (vm && vendor[vm[1]]) {
+    const v = vendor[vm[1]], gz = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
+    res.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=604800", ...(gz ? { "content-encoding": "gzip" } : {}), "vary": "accept-encoding" });
+    return res.end(gz ? v.gz : v.raw);
   }
   if (req.url === "/og.jpg") { res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "public, max-age=86400" }); return res.end(ogImage); }
   const am = /^\/(amb-(?:river|city|crick)\.mp3)(?:\?v=\d+)?$/.exec(req.url);
@@ -132,6 +143,7 @@ setInterval(() => { rollDay(); if (new Date().getMinutes() === 0) console.log("[
 const ipKey = ip => require("crypto").createHash("sha256").update(ip + day.date).digest("hex").slice(0, 12);  // IP는 저장하지 않고 하루짜리 해시만
 
 const rooms = [];            // [{ no, users: Map<id, user> }]
+const rooms3d = [];          // 여의도 02(3D 시험 채널): 01과 사람·데이터가 섞이지 않게 따로 센다
 const ips = new Map();
 let nextId = 1;
 // 고민 풍선(함께 나누기): 쓴 사람이 고를 때만, 이름 없이 같은 방 하늘에 60초 떠 있다. 메모리에만 두고 저장·로그 없음.
@@ -141,11 +153,12 @@ const CRISIS = /죽고\s*싶|죽을\s*것\s*같|죽어\s*버리|자살|사라지
 let nextWorry = 1;
 const pubWorry = (w, now) => ({ id: w.id, text: w.text, left: w.until - now, cheers: w.cheers });
 const liveWorries = room => { const now = Date.now(); room.worries = room.worries.filter(w => w.until > now); return room.worries; };
-const total = () => rooms.reduce((n, r) => n + r.users.size, 0);
+const total = () => [...rooms, ...rooms3d].reduce((n, r) => n + r.users.size, 0);
 
-function pickRoom() {
-  let r = rooms.find(r => r.users.size < CAP);
-  if (!r && rooms.length < MAX_ROOMS) { r = { no: rooms.length + 1, users: new Map(), fountainAt: 0, worries: [] }; rooms.push(r); }
+function pickRoom(ch) {
+  const pool = ch === "3d" ? rooms3d : rooms, max = ch === "3d" ? 3 : MAX_ROOMS;
+  let r = pool.find(r => r.users.size < CAP);
+  if (!r && pool.length < max) { r = { no: pool.length + 1, ch: ch === "3d" ? "3d" : "", users: new Map(), fountainAt: 0, worries: [] }; pool.push(r); }
   return r;
 }
 const adminHere = room => [...room.users.values()].some(o => o.admin);
@@ -157,7 +170,7 @@ function broadcast(room, msg, except) {
 }
 function sendCounts() {
   const t = total();
-  for (const r of rooms) broadcast(r, { t: "count", room: r.users.size, total: t });
+  for (const r of [...rooms, ...rooms3d]) broadcast(r, { t: "count", room: r.users.size, total: t });
 }
 
 const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 8192 });   // 운영자 긴 글 때문에 넉넉히, 일반 사용자는 아래에서 256바이트로 자른다
@@ -168,7 +181,7 @@ let lastNotice = null;   // 운영자 공지: 메모리에만, 10분 동안 새�
 wss.on("connection", (ws, req) => {
   const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
   if ((ips.get(ip) || 0) >= PER_IP) { send(ws, { t: "full", why: "ip" }); return ws.close(); }
-  const room = pickRoom();
+  const room = pickRoom(/[?&]ch=3d\b/.test(req.url) ? "3d" : "");
   if (!room) { send(ws, { t: "full", why: "rooms" }); return ws.close(); }
   ips.set(ip, (ips.get(ip) || 0) + 1);
   rollDay();
