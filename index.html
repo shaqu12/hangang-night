@@ -31,6 +31,10 @@
   #acts::-webkit-scrollbar { display: none; }
   #acts.more { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
   #acts.on { opacity: 1; }
+  #joy { position: fixed; left: 16px; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 72px); width: 92px; height: 92px; border-radius: 50%; background: rgba(14,18,40,.42); border: 1.5px solid rgba(255,255,255,.14); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); touch-action: none; display: none; z-index: 5; }
+  #joy.on { display: block; } #joy.hid { visibility: hidden; } #joy::after { content: "움직이기"; position: absolute; left: 0; right: 0; top: -18px; text-align: center; font-size: 10.5px; color: var(--dim); }
+  #joyK { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background: rgba(243,217,164,.75); box-shadow: 0 2px 10px rgba(0,0,0,.4); transition: transform .12s; }
+  #joy.drag #joyK { transition: none; }
   #acts button { all: unset; cursor: pointer; flex: 0 0 auto; min-width: 48px; height: 48px; padding: 0 4px; display: grid; place-items: center; align-content: center; gap: 1px; border-radius: 16px; font-size: 20px; line-height: 1; transition: background .15s, transform .15s; }
   #acts button span { font-size: 10.5px; color: var(--dim); }
   #acts button.sel { background: rgba(243,217,164,.2); }
@@ -70,13 +74,17 @@
   #toast { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 92px); left: 50%; transform: translateX(-50%); padding: 8px 16px; font-size: 13px; color: var(--ink); opacity: 0; transition: opacity .4s; white-space: nowrap; pointer-events: none; }
   #toast.on { opacity: 1; }
   #gate { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 60%, rgba(7,11,28,.3), rgba(7,11,28,.85)); transition: opacity .8s; }
-  #gate.off { opacity: 0; pointer-events: none; }
+  #gate.off { opacity: 0; pointer-events: none; } #gate { overflow-y: auto; padding: 16px 0; box-sizing: border-box; }
   #gate .box { text-align: center; padding: 0 16px; }
   #gate h1 { margin: 0 0 10px; font-size: 28px; font-weight: 700; letter-spacing: -.5px; }
   #gate p { margin: 0 0 28px; color: var(--dim); font-size: 15px; line-height: 1.6; }
   #gate button { all: unset; cursor: pointer; padding: 14px 30px; border-radius: 999px; background: #f3d9a4; color: #1b1a22; font-weight: 700; font-size: 16px; }
   #gate small { display: block; margin-top: 18px; color: var(--dim); font-size: 12px; }
-  #chRow { display: flex; gap: 6px; justify-content: center; align-items: center; margin: 12px auto 0; font-size: 12px; color: var(--dim); } #chRow button { all: unset; cursor: pointer; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; color: var(--dim); } #chRow button.on { background: rgba(243,217,164,.2); border-color: rgba(243,217,164,.6); color: var(--ink); cursor: default; }
+  #chRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 340px; margin: 0 auto 18px; } #chRow > b { grid-column: 1 / -1; font-size: 13px; color: var(--dim); font-weight: 600; }
+  #gate #chRow button { all: unset; cursor: pointer; display: grid; justify-items: center; gap: 4px; padding: 14px 8px 12px; border-radius: 18px; border: 1.5px solid var(--line); background: rgba(255,255,255,.04); color: var(--ink); }
+  #gate #chRow button.on { border-color: #f3d9a4; background: rgba(243,217,164,.16); box-shadow: 0 0 0 3px rgba(243,217,164,.12); }
+  #chRow i { font-style: normal; font-size: 28px; line-height: 34px; } #chRow i.b3d { font: 800 18px/34px sans-serif; padding: 0 9px; border-radius: 10px; background: linear-gradient(135deg, #7ad8ff, #b48cff); color: #10122a; letter-spacing: .5px; }
+  #chRow strong { font-size: 16px; } #chRow span { font-size: 12px; color: var(--dim); }
   #gRow { display: flex; gap: 5px; justify-content: center; margin: 10px auto 0; } #gRow button { all: unset; cursor: pointer; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; color: var(--dim); } #gRow button.on { background: rgba(243,217,164,.2); border-color: rgba(243,217,164,.6); color: var(--ink); }
   #nickRow { display: flex; gap: 6px; justify-content: center; margin: 0 auto; width: min(260px, 100%); }
   #nickRow input, #nickBox input, #wishBox input, #sayBox input, #fbBox textarea { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--ink); font: inherit; font-size: 16px; text-align: center; outline: none; }
@@ -174,6 +182,7 @@
 </div>
 <div id="emo" class="pill"><small>친구에게 끌어다 놓으면 날아가요 · 누르면 내 머리 위에</small><div class="row" id="emoRow"></div></div>
 <div id="actp" class="pill"></div>
+<div id="joy" aria-label="움직이기"><div id="joyK"></div></div>
 <div id="foodp" class="pill"></div>
 <div id="drag"></div>
 <div id="acts" class="pill"></div>
@@ -196,8 +205,10 @@
   <div id="nickRow"><input id="nickIn" maxlength="5" autocomplete="off" enterkeyhint="go" aria-label="닉네임"><button id="nickDice" aria-label="다른 이름">🎲</button></div>
   <div id="gRow" role="radiogroup" aria-label="캐릭터"><button data-g="m">👦 남자</button><button data-g="f">👧 여자</button><button data-g="">🙂 선택 안 함</button></div>
   <small class="nickHint">닉네임(5자까지)은 그대로 둬도 돼요. 폭죽을 쏘면 하늘에 이름이 떠요.</small>
-  <button id="go">돗자리 펴기</button>
-  <div id="chRow"><span>채널</span><button class="on" disabled>여의도 01</button><button id="ch02">여의도 02 · 3D 시험</button></div>
+  <div id="chRow" role="radiogroup" aria-label="채널 고르기"><b>채널 고르기</b>
+    <button data-ch="01" class="on"><i>🌙</i><strong>여의도 01</strong><span>일반 · 그림 같은 2D</span></button>
+    <button data-ch="02"><i class="b3d">3D</i><strong>여의도 02</strong><span>360도로 둘러보는 3D</span></button></div>
+  <button id="go">여의도 01 입장</button>
   <small id="soundNote">말은 못 하고 이모지만 보낼 수 있어요.</small>
 </div></div>
 
@@ -1055,10 +1066,7 @@ function freeSeatNear(i, px) {
 }
 function canPick() { const c = chars.get(me); return c && c.state !== "leave" && ws && ws.readyState === 1; }
 cv.addEventListener("pointerdown", e => {
-  if (skyK > .5) {
-    closePanels(); if (performance.now() - lastStarSent >= 10000) zShoots.push({ x: e.clientX, y: e.clientY, d: e.clientX < W / 2 ? 1 : -1, k: 0, len: 220 * U });
-    return sendStar(e.clientX, Math.max(H * .06, Math.min(H * Y.S * .85, e.clientY - skyOff())));
-  }   // 누워 있을 땐 하늘만 보인다: 어디를 눌러도 별똥별
+  if (lyingNow()) { closePanels(); skyDrag = { y: e.clientY, x: e.clientX, w: skyWant, moved: 0, id: e.pointerId }; return; }   // 누워 있을 땐 위아래로 끌어 하늘↔한강, 톡 누르면 별똥별
   { const w = !aiming && worryAt(e.clientX, e.clientY); if (w) return openWorry(w); }        // 고민 풍선: 공감 보내기
   if (!aiming && onPet(e.clientX, e.clientY)) return openPet();
   if (!aiming && onSky(e.clientX, e.clientY)) return sendStar(e.clientX, e.clientY);        // 하늘: 별똥별 신호                         // 산책로 강아지·고양이: 간식 후원
@@ -1934,6 +1942,19 @@ function drawCheers(t, dt) {
 }
 // ---------- 🛌 누워서 하늘 보기 ----------
 // 내가 누우면 화면이 위로 올라가 머리 위 밤하늘(은하수·별·큰 별똥별)이 보인다. 장면 전체를 아래로 밀고 그 위에 하늘 한 장을 더 그리는 방식
+let skyWant = 1, skyDrag = null;
+const lyingNow = () => { const mc = chars.get(me); return !!mc && mc.state === "sit" && !mc.path.length && mc.act === "lie"; };
+cv.addEventListener("pointermove", e => {
+  const d = skyDrag; if (!d || e.pointerId !== d.id) return;
+  const dy = e.clientY - d.y; d.moved = Math.max(d.moved, Math.abs(dy)); skyWant = Math.max(0, Math.min(1, d.w + dy / (H * .72))); skyK = skyWant;
+});
+const skyUp = e => {
+  const d = skyDrag; if (!d || e.pointerId !== d.id) return; skyDrag = null;
+  if (d.moved > 8 || e.type === "pointercancel" || skyK < .3) return;
+  if (performance.now() - lastStarSent >= 10000) zShoots.push({ x: d.x, y: d.y, d: d.x < W / 2 ? 1 : -1, k: 0, len: 220 * U });
+  sendStar(d.x, Math.max(H * .06, Math.min(H * Y.S * .85, d.y - skyOff())));
+};
+cv.addEventListener("pointerup", skyUp); cv.addEventListener("pointercancel", skyUp);
 let skyK = 0, zen = null, zStars = [], zShoots = [], nextZ = 1.5;
 function makeZenith() {
   let g; [zen, g] = canvas(W, H);
@@ -1966,7 +1987,7 @@ function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   const t = now / 1000;
   cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  { const mc = chars.get(me), want = mc && mc.state === "sit" && !mc.path.length && mc.act === "lie" ? 1 : 0; skyK += (want - skyK) * Math.min(1, dt * 1.6); if (Math.abs(want - skyK) < .002) skyK = want; }
+  if (!skyDrag) { const want = lyingNow() ? skyWant : 0; skyK += (want - skyK) * Math.min(1, dt * 1.6); if (Math.abs(want - skyK) < .002) skyK = want; }
   const off = skyK > 0 ? skyOff() : 0;
   if (off > 0) { if (!zen) makeZenith(); drawZenith(t, dt, off); cx.translate(0, off); }
   drawScene(t, dt);
@@ -1981,6 +2002,7 @@ function frame(now) {
   groups.forEach((g, i) => drawMat(g, glowBase && g.seats.some(k => !seatTaken(k)) ? glowBase + glowBase * .6 * Math.sin(t * 2.6 + i * .7) : 0));
   groups.forEach(drawMatTag);
   drawPaperBoats(t, dt); drawMailbox(t); drawBoard(t); drawPet(t, dt);
+  joyStep();
   for (const c of chars.values()) stepChar(c, dt);
   [...chars.values()].sort((a, b) => a.y - b.y).forEach(c => drawChar(c, t));
   drawAim(t);
@@ -2116,6 +2138,31 @@ function showPhoto(blob, name) {
 }
 let myDir = "river"; try { myDir = localStorage.getItem("hn-dir") === "front" ? "front" : "river"; } catch {}
 function syncDir() { const b = $("dirBtn"); if (b) b.innerHTML = myDir === "front" ? "🙂<span>정면 보기</span>" : "🌊<span>한강 보기</span>"; }
+// 🕹️ 조이스틱(왼쪽 아래)과 방향키·WASD로 직접 걷기. 0.42초마다(서버 go 간격 0.4초) 조금 앞을 목적지로 보내 끊김 없이 걷는다(서버 go)
+const joy = { on: false, dx: 0, dy: 0, last: 0, moved: false, keys: new Set() };
+{
+  const el = $("joy"), k = $("joyK");
+  const upd = e => { const r = el.getBoundingClientRect(), cx0 = r.left + r.width / 2, cy0 = r.top + r.height / 2; let dx = e.clientX - cx0, dy = e.clientY - cy0; const L = Math.hypot(dx, dy), M = 36; if (L > M) { dx *= M / L; dy *= M / L; } k.style.transform = `translate(${dx}px, ${dy}px)`; joy.dx = dx / M; joy.dy = dy / M; };
+  el.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); try { el.setPointerCapture(e.pointerId); } catch {} joy.on = true; el.classList.add("drag"); upd(e); });
+  el.addEventListener("pointermove", e => { if (joy.on) upd(e); });
+  const end = () => { if (!joy.on) return; joy.on = false; el.classList.remove("drag"); k.style.transform = ""; joy.dx = joy.dy = 0; joyStop(); };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+  const KEYS = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
+  const keyVec = () => { let x = 0, y = 0; for (const kk of joy.keys) { x += KEYS[kk][0]; y += KEYS[kk][1]; } const L = Math.hypot(x, y) || 1; joy.kx = x / L; joy.ky = y / L; };
+  addEventListener("keydown", e => { if (e.target.closest && e.target.closest("input,textarea")) return; const kk = KEYS[e.key] ? e.key : KEYS[e.key.toLowerCase()] ? e.key.toLowerCase() : null; if (!kk) return; joy.keys.add(kk); keyVec(); e.preventDefault(); });
+  addEventListener("keyup", e => { const kk = KEYS[e.key] ? e.key : e.key.toLowerCase(); if (!joy.keys.delete(kk)) return; keyVec(); if (!joy.keys.size) joyStop(); });
+}
+function joyVec() { return joy.keys.size ? [joy.kx || 0, joy.ky || 0] : [joy.dx, joy.dy]; }
+function joyStep() {
+  { const open = $("emo").classList.contains("open") || $("actp").classList.contains("open") || $("foodp").classList.contains("open") || lyingNow(); const j = $("joy"); if (j.classList.contains("hid") !== open) j.classList.toggle("hid", open); }
+  const [dx, dy] = joyVec(); if (Math.hypot(dx, dy) < .2 || !canPick() || lyingNow()) return;
+  const now = performance.now(); if (now - joy.last < 420) return; joy.last = now;
+  const c = chars.get(me), sp = 62 * U * .75;
+  const x = Math.max(12, Math.min(W - 12, c.x + dx * sp)), y = Math.max(H * Y.path0 + 2 * U, Math.min(H * .985, c.y + dy * sp));
+  ws.send(JSON.stringify({ t: "go", x: x / W, y: Math.max(.5, y / H) })); joy.moved = true;
+  if (!hinted) { hinted = true; toast("", 1); }
+}
+function joyStop() { if (!joy.moved || !canPick()) return; joy.moved = false; const c = chars.get(me); setTimeout(() => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "go", x: c.x / W, y: Math.max(.5, c.y / H) })); }, 420); }
 function buildActs() {
   const bar = $("acts");
   const eb = document.createElement("button"); eb.innerHTML = "😊<span>마음</span>"; eb.setAttribute("aria-label", "마음 보내기"); eb.onclick = () => { const o = !$("emo").classList.contains("open"); closePanels(); $("emo").classList.toggle("open", o); if (o && aiming) setAiming(false); };
@@ -2158,7 +2205,7 @@ function buildActs() {
   ACTS.forEach(x => mkAct("actp", x));
   const hd = t => { const h = document.createElement("b"); h.textContent = t; $("foodp").appendChild(h); };
   hd("먹을 것"); FOODS.slice(0, 8).forEach(x => mkAct("foodp", x)); hd("마실 것 · 들고 옆 사람을 누르면 짠!"); FOODS.slice(8).forEach(x => mkAct("foodp", x));
-  bar.classList.add("on"); syncActs();
+  bar.classList.add("on"); $("joy").classList.add("on"); syncActs();
   const more = () => bar.classList.toggle("more", bar.scrollWidth - bar.clientWidth - bar.scrollLeft > 4);   // 오른쪽에 버튼이 더 있으면 흐리게
   bar.addEventListener("scroll", more); addEventListener("resize", more); more();
 }
@@ -2193,7 +2240,7 @@ function doAct(id) {
   const a = c.act === id ? "sit" : id;
   c.act = a; lastAct = a; syncActs(); closePanels();
   if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "act", a }));
-  if (a === "lie") toast("🛌 누워서 하늘을 봐요. 하늘을 누르면 별똥별이 떨어져요", 3200);
+  if (a === "lie") { skyWant = 1; toast("🛌 위아래로 끌면 하늘↔한강, 톡 누르면 별똥별", 3400); }
   else if (DRINKS.includes(a)) toast(`${FOOD_E[a]} 옆 사람을 누르면 짠! 할 수 있어요`, 2800);
 }
 function closePanels() { $("emo").classList.remove("open"); $("actp").classList.remove("open"); $("foodp").classList.remove("open"); }
@@ -2296,9 +2343,12 @@ fetch("amb-river.mp3", { method: "HEAD" }).then(r => {
   $("soundNote").textContent = "밤 강변 소리가 작게 나와요(오른쪽 위에서 조절). 말은 못 하고 이모지만 보낼 수 있어요.";
 }).catch(() => {});
 
-$("ch02").onclick = () => { const n = $("nickIn").value.trim(); if (n) saveNick(n); location.href = "/3d" + location.search; };   // 3D 시험 채널(따로 만든 페이지)
+// 채널: 01(2D, 이 페이지) / 02(3D, /3d 페이지). 두 채널은 사람이 섞이지 않는다
+let myCh = "01";
+$("chRow").querySelectorAll("button").forEach(b => b.onclick = () => { myCh = b.dataset.ch; $("chRow").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); $("go").textContent = myCh === "02" ? "여의도 02 (3D) 입장" : "여의도 01 입장"; });
 $("go").onclick = () => {
   const n = $("nickIn").value.replace(/\s+/g, " ").trim(); saveNick(n || myNick);
+  if (myCh === "02") { location.href = "/3d" + location.search; return; }
   $("gate").classList.add("off");
   ensureCtx(); started = true; applySound(); dailyAt = performance.now() / 1000 + 2.5;
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: "밤 한강 돗자리", artist: "밤 강변 소리" });
